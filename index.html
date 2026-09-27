@@ -111,6 +111,7 @@ dialog .foot{display:flex;gap:8px;justify-content:flex-end;padding:12px 18px;bor
       <div class="row" style="margin-top:8px">
         <button class="primary" id="histDup" title="これをコピーして新しく作る">複製して使う</button>
         <button id="histOpen" title="保存した書類をそのまま開いて直す">開く</button>
+        <button id="histUpdate" title="選んでいる項目を、今の入力内容で上書きする">更新</button>
         <button class="danger" id="histDel" style="flex:0 0 auto">削除</button>
       </div>
       <div class="hint">データはこのブラウザの中だけに保存されるよ。月1くらいで「バックアップ」からファイルに書き出しておくと安心。</div>
@@ -483,7 +484,7 @@ function renderHistory() {
       }).join('')
     : '<option value="">まだ保存した書類はないよ</option>';
   if (list.some(d => d.id === keep)) sel.value = keep;
-  ['histDup','histOpen','histDel'].forEach(id => $(id).disabled = !sel.value);
+  ['histDup','histOpen','histUpdate','histDel'].forEach(id => $(id).disabled = !sel.value);
 }
 
 function saveDoc(silent) {
@@ -642,10 +643,18 @@ $('btnPdf').onclick = async () => {
 };
 
 $('history').addEventListener('change', renderHistory);
-[['histOpen','open'],['histDup','dup'],['histDel','del']].forEach(([btn, act]) => $(btn).onclick = () => histAction(act));
+[['histOpen','open'],['histDup','dup'],['histUpdate','update'],['histDel','del']].forEach(([btn, act]) => $(btn).onclick = () => histAction(act));
 function histAction(act) {
   const id = $('history').value;
   const d = store.docs.find(x => x.id === id); if (!d) return toast('先にプルダウンから選んでね');
+  if (act === 'update') {
+    // 選んでいる項目を、今の入力内容で上書き（表示名はそのまま）
+    const name = $('history').selectedOptions[0].text;
+    if (!confirm(`「${name}」を今の内容で上書きする？`)) return;
+    doc.id = id; doc.savedName = d.savedName || '';
+    saveDoc(true); $('history').value = id; renderHistory();
+    return toast('更新したよ。次からこの内容で使えるよ');
+  }
   if (act === 'open') { doc = JSON.parse(JSON.stringify(d)); renderForm(); renderSheet(); window.scrollTo({top:0, behavior:'smooth'}); }
   if (act === 'dup') {
     const n = JSON.parse(JSON.stringify(d));
