@@ -183,7 +183,9 @@ dialog .foot{display:flex;gap:8px;justify-content:flex-end;padding:12px 18px;bor
       <div><label>電話</label><input id="pf_tel"></div>
       <div><label>メール</label><input id="pf_email"></div>
     </div>
-    <label>インボイス登録番号（T+13桁／未登録なら空欄）</label><input id="pf_regNo" placeholder="T1234567890123">
+    <label class="check"><input type="checkbox" id="pf_exempt"> インボイス未登録（免税事業者）</label>
+    <div class="hint">チェックすると書類の「消費税」が「消費税相当額」になって、登録番号は表示されなくなるよ。</div>
+    <div id="pf_regWrap"><label>インボイス登録番号（T+13桁）</label><input id="pf_regNo" placeholder="T1234567890123"></div>
     <label>振込先</label><textarea id="pf_bank" placeholder="〇〇銀行 〇〇支店 普通 1234567&#10;口座名義 〇〇〇〇"></textarea>
     <label>印影画像（任意・背景透過PNGがおすすめ）</label>
     <div class="row"><input type="file" id="pf_stampFile" accept="image/*"><button class="small" id="pf_stampClear" style="flex:0 0 auto">画像を外す</button></div>
@@ -333,7 +335,7 @@ function renderSheet() {
   });
   while (rows.length < minRows) rows.push('<tr><td></td><td></td><td></td><td></td><td></td><td></td></tr>');
   const taxRows = c.taxes.map(t => t.rate > 0
-    ? `<tr><td>${t.rate}%対象（税抜）</td><td class="num">${yen(t.base)}</td></tr><tr><td>消費税（${t.rate}%）</td><td class="num">${yen(t.tax)}</td></tr>`
+    ? `<tr><td>${t.rate}%対象（税抜）</td><td class="num">${yen(t.base)}</td></tr><tr><td>${p.exempt ? '消費税相当額' : '消費税'}（${t.rate}%）</td><td class="num">${yen(t.tax)}</td></tr>`
     : `<tr><td>対象外</td><td class="num">${yen(t.base)}</td></tr>`).join('');
   const whRows = c.wh ? `<tr><td>源泉徴収税額</td><td class="num">-${yen(c.wh)}</td></tr><tr class="big"><td>差引ご請求額</td><td class="num">${yen(c.pay)}</td></tr>` : '';
   const headline = isInv && c.wh ? c.pay : c.total;
@@ -360,7 +362,7 @@ function renderSheet() {
         ${addr ? `<div>${addr}</div>` : ''}
         ${p.tel ? `<div>TEL ${esc(p.tel)}</div>` : ''}
         ${p.email ? `<div>${esc(p.email)}</div>` : ''}
-        ${p.regNo ? `<div>登録番号 ${esc(p.regNo)}</div>` : ''}
+        ${p.regNo && !p.exempt ? `<div>登録番号 ${esc(p.regNo)}</div>` : ''}
       </div>
     </div>
     <table class="items">
@@ -545,6 +547,8 @@ function fillProfileForm() {
   $('pfSel').value = pfId;
   const p = profile(pfId);
   PF.forEach(k => $('pf_' + k).value = p[k] || '');
+  $('pf_exempt').checked = !!p.exempt;
+  $('pf_regWrap').style.display = p.exempt ? 'none' : '';
   $('pf_stampFile').value = '';
 }
 $('btnProfile').onclick = () => { pfId = doc.profileId; fillProfileForm(); $('dlgProfile').showModal(); };
@@ -560,6 +564,10 @@ $('pfDel').onclick = () => {
   store.profiles = store.profiles.filter(p => p.id !== pfId); persist();
   pfId = store.profiles[0].id; if (!profile(doc.profileId, true)) doc.profileId = pfId; fillProfileForm();
 };
+$('pf_exempt').addEventListener('change', e => {
+  profile(pfId).exempt = e.target.checked; persist(); renderSheet();
+  $('pf_regWrap').style.display = e.target.checked ? 'none' : '';
+});
 $('pf_stampFile').addEventListener('change', e => {
   const f = e.target.files[0]; if (!f) return;
   const img = new Image(); const r = new FileReader();
