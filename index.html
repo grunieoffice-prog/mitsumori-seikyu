@@ -437,8 +437,8 @@ function renderSheet() {
         <div class="fname">${esc(p.name) || '（発行者の設定から入力してね）'}</div>
         ${p.rep ? `<div>${esc(p.rep)}</div>` : ''}
         ${addr ? `<div>${addr}</div>` : ''}
-        ${p.tel ? `<div>TEL ${esc(p.tel)}</div>` : ''}
-        ${p.email ? `<div>${esc(p.email)}</div>` : ''}
+        ${p.tel ? `<div>TEL：${esc(p.tel)}</div>` : ''}
+        ${p.email ? `<div>Mail：${esc(p.email)}</div>` : ''}
         ${p.regNo && !p.exempt ? `<div>登録番号 ${esc(p.regNo)}</div>` : ''}
       </div>
     </div>
