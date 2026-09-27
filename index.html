@@ -141,8 +141,12 @@ dialog .foot{display:flex;gap:8px;justify-content:flex-end;padding:12px 18px;bor
         <select id="presetSel" style="width:auto;font-size:12px"><option value="">登録品目から追加…</option></select>
         <button class="small" id="btnAddItem">＋ 行を追加</button>
       </h2>
+      <div class="seg" id="modeSeg" style="margin-bottom:10px">
+        <button data-mode="excl">単価は税抜（外税）</button>
+        <button data-mode="incl">単価は税込（内税）</button>
+      </div>
       <div id="items"></div>
-      <div class="hint">単価は<b>税抜</b>で入力。消費税は税率ごとにまとめて計算（1円未満切り捨て）＝インボイスの計算ルールに沿ってるよ。</div>
+      <div class="hint">消費税は税率ごとにまとめて計算して、1円未満は切り捨て（インボイスの計算ルール）。内税のときは「内消費税」として表示するよ。</div>
       <label class="check"><input type="checkbox" id="withholding"> 源泉徴収する（個人→法人への デザイン料・原稿料 など）</label>
       <div class="hint">税抜金額に10.21%（100万円超の部分は20.42%）で計算して、差引額を表示するよ。</div>
     </div>
@@ -258,7 +262,7 @@ function newDoc(type = 'invoice') {
   return {
     id: null, type, profileId, issueDate: issue, dueDate: defaultDue(type, issue),
     subject:'', clientName:'', honorific:'御中', clientContact:'',
-    items:[{name:'', qty:1, unit:'式', price:0, rate:10}], withholding:false, notes:'', showBank:true
+    items:[{name:'', qty:1, unit:'式', price:0, rate:10}], priceMode: store.lastPriceMode || 'excl', withholding:false, notes:'', showBank:true
   };
 }
 function profile(id, strict) { return store.profiles.find(p => p.id === id) || (strict ? null : store.profiles[0]); }
@@ -273,10 +277,16 @@ function calc(d) {
     const r = String(it.rate);
     byRate[r] = (byRate[r] || 0) + amt;
   });
-  const taxes = Object.entries(byRate).map(([r, base]) => ({rate:+r, base, tax: +r > 0 ? Math.floor(base * +r / 100) : 0}))
-    .sort((a,b) => b.rate - a.rate);
+  const incl = d.priceMode === 'incl';
+  const taxes = Object.entries(byRate).map(([r, sum]) => {
+    const rate = +r;
+    // 外税：税抜合計×税率　内税：税込合計×税率/(100+税率)　どちらも税率ごとに1回だけ切り捨て
+    const tax = rate > 0 ? Math.floor(incl ? sum * rate / (100 + rate) : sum * rate / 100) : 0;
+    return incl ? {rate, base: sum - tax, tax, gross: sum} : {rate, base: sum, tax, gross: sum + tax};
+  }).sort((a,b) => b.rate - a.rate);
   const tax = taxes.reduce((s, t) => s + t.tax, 0);
-  const total = subtotal + tax;
+  subtotal = taxes.reduce((s, t) => s + t.base, 0); // 税抜合計（源泉徴収はこれを元に計算）
+  const total = taxes.reduce((s, t) => s + t.gross, 0);
   let wh = 0;
   if (d.withholding && subtotal > 0) {
     wh = subtotal <= 1000000 ? Math.floor(subtotal * 0.1021) : Math.floor((subtotal - 1000000) * 0.2042 + 102100);
@@ -297,8 +307,9 @@ function renderForm() {
   $('bankWrap').style.display = doc.type === 'invoice' ? '' : 'none';
   $('btnConvert').style.display = doc.type === 'quote' ? '' : 'none';
   $('clientList').innerHTML = [...new Set(store.docs.map(d => d.clientName).filter(Boolean))].map(n => `<option value="${esc(n)}">`).join('');
+  document.querySelectorAll('#modeSeg button').forEach(b => b.classList.toggle('on', b.dataset.mode === (doc.priceMode || 'excl')));
   $('presetSel').innerHTML = '<option value="">登録品目から追加…</option>' +
-    store.presets.map((p, i) => `<option value="${i}">${esc(p.name)}（${yen(p.price)}/${esc(p.unit)}）</option>`).join('');
+    store.presets.map((p, i) => `<option value="${i}">${esc(p.name)}（${yen(p.price)}${p.priceMode === 'incl' ? '税込' : '税抜'}/${esc(p.unit)}）</option>`).join('');
   renderItems();
 }
 function renderItems() {
@@ -313,7 +324,7 @@ function renderItems() {
       <div class="row">
         <div><label>数量</label><input data-k="qty" type="number" step="any" value="${it.qty}"></div>
         <div><label>単位</label><input data-k="unit" value="${esc(it.unit)}"></div>
-        <div style="flex:1.4"><label>単価（税抜）</label><input data-k="price" type="number" step="1" value="${it.price}"></div>
+        <div style="flex:1.4"><label>単価（${doc.priceMode === 'incl' ? '税込' : '税抜'}）</label><input data-k="price" type="number" step="1" value="${it.price}"></div>
         <div><label>税率</label><select data-k="rate">
           ${[10,8,0].map(r => `<option value="${r}" ${+it.rate===r?'selected':''}>${r ? r+'%' : '対象外'}</option>`).join('')}
         </select></div>
@@ -334,9 +345,13 @@ function renderSheet() {
     return `<tr><td>${esc(it.name)}${mark}</td><td class="num">${esc(it.qty)}</td><td class="c">${esc(it.unit)}</td><td class="num">${num(+it.price||0)}</td><td class="c">${+it.rate ? it.rate+'%' : '対象外'}</td><td class="num">${num(amt)}</td></tr>`;
   });
   while (rows.length < minRows) rows.push('<tr><td></td><td></td><td></td><td></td><td></td><td></td></tr>');
-  const taxRows = c.taxes.map(t => t.rate > 0
-    ? `<tr><td>${t.rate}%対象（税抜）</td><td class="num">${yen(t.base)}</td></tr><tr><td>${p.exempt ? '消費税相当額' : '消費税'}（${t.rate}%）</td><td class="num">${yen(t.tax)}</td></tr>`
-    : `<tr><td>対象外</td><td class="num">${yen(t.base)}</td></tr>`).join('');
+  const incl = doc.priceMode === 'incl';
+  const taxWord = p.exempt ? '消費税相当額' : '消費税';
+  const taxRows = c.taxes.map(t => t.rate <= 0
+    ? `<tr><td>対象外</td><td class="num">${yen(t.base)}</td></tr>`
+    : incl
+    ? `<tr><td>${t.rate}%対象（税込）</td><td class="num">${yen(t.gross)}</td></tr><tr><td>　内${taxWord}（${t.rate}%）</td><td class="num">${yen(t.tax)}</td></tr>`
+    : `<tr><td>${t.rate}%対象（税抜）</td><td class="num">${yen(t.base)}</td></tr><tr><td>${taxWord}（${t.rate}%）</td><td class="num">${yen(t.tax)}</td></tr>`).join('');
   const whRows = c.wh ? `<tr><td>源泉徴収税額</td><td class="num">-${yen(c.wh)}</td></tr><tr class="big"><td>差引ご請求額</td><td class="num">${yen(c.pay)}</td></tr>` : '';
   const headline = isInv && c.wh ? c.pay : c.total;
   const addr = [p.zip ? '〒' + esc(p.zip) : '', esc(p.address)].filter(Boolean).join(' ');
@@ -366,12 +381,12 @@ function renderSheet() {
       </div>
     </div>
     <table class="items">
-      <thead><tr><th>品目</th><th style="width:13%">数量</th><th style="width:8%">単位</th><th style="width:15%">単価</th><th style="width:9%">税率</th><th style="width:17%">金額（税抜）</th></tr></thead>
+      <thead><tr><th>品目</th><th style="width:13%">数量</th><th style="width:8%">単位</th><th style="width:15%">単価${incl ? '（税込）' : ''}</th><th style="width:9%">税率</th><th style="width:17%">金額（${incl ? '税込' : '税抜'}）</th></tr></thead>
       <tbody>${rows.join('')}</tbody>
     </table>
     ${c.taxes.some(t => t.rate === 8) ? '<div class="foot-note">※は軽減税率（8%）対象</div>' : ''}
     <div class="sum"><table>
-      <tr><td>小計（税抜）</td><td class="num">${yen(c.subtotal)}</td></tr>
+      ${incl ? '' : `<tr><td>小計（税抜）</td><td class="num">${yen(c.subtotal)}</td></tr>`}
       ${taxRows}
       <tr class="big"><td>合計（税込）</td><td class="num">${yen(c.total)}</td></tr>
       ${whRows}
@@ -426,6 +441,11 @@ $('profileSel').addEventListener('change', e => {
   doc.profileId = e.target.value;
   renderSheet();
 });
+$('modeSeg').addEventListener('click', e => {
+  const m = e.target.dataset.mode; if (!m || m === doc.priceMode) return;
+  doc.priceMode = m; store.lastPriceMode = m; persist();
+  renderForm(); renderSheet();
+});
 $('typeSeg').addEventListener('click', e => {
   const t = e.target.dataset.type; if (!t || t === doc.type) return;
   doc.type = t;
@@ -448,7 +468,7 @@ $('items').addEventListener('click', e => {
     const it = doc.items[i];
     if (!it.name) return toast('品目名を入れてから登録してね');
     const j = store.presets.findIndex(p => p.name === it.name);
-    const pr = {name: it.name, unit: it.unit, price: +it.price || 0, rate: +it.rate};
+    const pr = {name: it.name, unit: it.unit, price: +it.price || 0, rate: +it.rate, priceMode: doc.priceMode || 'excl'};
     if (j >= 0) store.presets[j] = pr; else store.presets.push(pr);
     persist(); renderForm(); return toast('「' + it.name + '」を登録品目にしたよ');
   }
@@ -459,7 +479,10 @@ $('presetSel').addEventListener('change', e => {
   if (e.target.value === '') return;
   const p = store.presets[+e.target.value];
   const blank = doc.items.length === 1 && !doc.items[0].name && !+doc.items[0].price;
-  const it = {name:p.name, qty:1, unit:p.unit, price:p.price, rate:p.rate};
+  // 登録時と今の書類で税抜／税込が違うときは単価を換算する
+  let price = p.price; const from = p.priceMode || 'excl', to = doc.priceMode || 'excl';
+  if (from !== to && p.rate > 0) price = to === 'incl' ? Math.round(price * (100 + p.rate) / 100) : Math.round(price * 100 / (100 + p.rate));
+  const it = {name:p.name, qty:1, unit:p.unit, price, rate:p.rate};
   if (blank) doc.items[0] = it; else doc.items.push(it);
   e.target.value = ''; renderItems(); renderSheet();
 });
@@ -471,7 +494,7 @@ $('btnConvert').onclick = () => {
   const src = JSON.parse(JSON.stringify(doc));
   const inv = newDoc('invoice');
   Object.assign(inv, {profileId: src.profileId, subject: src.subject, clientName: src.clientName, honorific: src.honorific,
-    clientContact: src.clientContact, items: src.items, withholding: src.withholding, notes: src.notes});
+    clientContact: src.clientContact, items: src.items, priceMode: src.priceMode || 'excl', withholding: src.withholding, notes: src.notes});
   doc = inv; renderForm(); renderSheet();
   toast('見積書の内容で請求書を作ったよ（発行日・期限は新しくしてある）');
 };
