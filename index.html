@@ -206,6 +206,22 @@ dialog .foot{display:flex;gap:8px;justify-content:flex-end;padding:12px 18px;bor
 </dialog>
 
 <!-- バックアップ -->
+<!-- よく使うに保存 -->
+<dialog id="dlgSave">
+  <form method="dialog" id="saveForm">
+    <div class="body">
+      <h2 style="margin-top:0;font-size:16px">よく使うに保存</h2>
+      <label>プルダウンに表示する名前</label>
+      <input id="saveName" placeholder="例：〇〇社 毎月の動画編集">
+      <div class="hint">空欄のままだと「種類｜宛先｜件名｜発行日｜金額」を自動で表示するよ。</div>
+    </div>
+    <div class="foot">
+      <button type="button" id="saveCancel">キャンセル</button>
+      <button type="submit" class="primary">保存</button>
+    </div>
+  </form>
+</dialog>
+
 <dialog id="dlgBackup">
   <div class="body">
     <h2 style="margin-top:0;font-size:16px">バックアップ</h2>
@@ -451,7 +467,7 @@ function renderHistory() {
   sel.innerHTML = list.length
     ? '<option value="">選んでね（' + list.length + '件）</option>' + list.map(d => {
         const c = calc(d);
-        const label = [d.type==='invoice'?'請求':'見積', d.clientName||'（宛先なし）', d.subject,
+        const label = d.savedName || [d.type==='invoice'?'請求':'見積', d.clientName||'（宛先なし）', d.subject,
           d.issueDate ? d.issueDate.slice(2).replace(/-/g, '.') : '', yen(d.withholding && d.type==='invoice' ? c.pay : c.total)].filter(Boolean).join('｜');
         return `<option value="${d.id}">${esc(label)}</option>`;
       }).join('')
@@ -556,7 +572,13 @@ $('presetSel').addEventListener('change', e => {
 });
 
 $('btnNew').onclick = () => { doc = newDoc(doc.type); renderForm(); renderSheet(); };
-$('btnSave').onclick = () => saveDoc();
+// 「よく使うに保存」：表示名を決めてから保存（前に付けた名前があれば最初から入っている）
+$('btnSave').onclick = () => {
+  $('saveName').value = doc.savedName || '';
+  $('dlgSave').showModal(); $('saveName').focus(); $('saveName').select();
+};
+$('saveForm').addEventListener('submit', () => { doc.savedName = $('saveName').value.trim(); saveDoc(); $('history').value = doc.id; renderHistory(); });
+$('saveCancel').onclick = () => $('dlgSave').close();
 $('btnConvert').onclick = () => {
   if (doc.type !== 'quote') return;
   const src = JSON.parse(JSON.stringify(doc));
@@ -617,7 +639,7 @@ function histAction(act) {
   if (act === 'open') { doc = JSON.parse(JSON.stringify(d)); renderForm(); renderSheet(); window.scrollTo({top:0, behavior:'smooth'}); }
   if (act === 'dup') {
     const n = JSON.parse(JSON.stringify(d));
-    n.id = null; n.issueDate = ymd(new Date()); n.dueDate = defaultDue(n.type, n.issueDate);
+    n.id = null; n.savedName = ''; n.issueDate = ymd(new Date()); n.dueDate = defaultDue(n.type, n.issueDate);
     shiftItemMonths(n, d.issueDate, n.issueDate);
     doc = n; renderForm(); renderSheet(); toast('コピーしたよ。内容を直して保存してね');
   }
