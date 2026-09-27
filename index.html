@@ -19,6 +19,7 @@ button:hover{border-color:var(--accent)}
 button.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
 button.danger{color:var(--danger)}
 button.small{padding:3px 8px;font-size:12px}
+button:disabled{opacity:.45;cursor:default}
 header.app button{background:#374151;color:#fff;border-color:#4b5563}
 header.app button.primary{background:var(--accent);border-color:var(--accent)}
 .layout{display:grid;grid-template-columns:minmax(360px,460px) 1fr;gap:16px;padding:16px;align-items:start}
@@ -40,14 +41,6 @@ textarea{min-height:60px;resize:vertical}
 .item .head{display:flex;gap:6px}
 .item .head input{flex:1}
 .hint{font-size:12px;color:var(--muted);margin-top:6px;line-height:1.5}
-.list{max-height:320px;overflow:auto;border:1px solid var(--line);border-radius:8px}
-.list .li{display:flex;gap:8px;align-items:center;padding:8px;border-bottom:1px solid #eee;font-size:13px}
-.list .li:last-child{border-bottom:0}
-.list .li .grow{flex:1;min-width:0}
-.list .li .sub{color:var(--muted);font-size:12px}
-.tag{display:inline-block;font-size:11px;padding:1px 6px;border-radius:4px;background:var(--soft);color:var(--accent);margin-right:4px}
-.tag.inv{background:#fef3c7;color:#92400e}
-.empty{padding:14px;color:var(--muted);text-align:center}
 .preview-wrap{overflow:auto}
 dialog{border:0;border-radius:12px;padding:0;width:min(560px,94vw);box-shadow:0 10px 40px rgba(0,0,0,.3)}
 dialog .body{padding:16px 18px;max-height:78vh;overflow:auto}
@@ -101,7 +94,7 @@ dialog .foot{display:flex;gap:8px;justify-content:flex-end;padding:12px 18px;bor
 <header class="app">
   <h1>見積書・請求書メーカー</h1>
   <button id="btnNew">＋ 新規作成</button>
-  <button id="btnSave">履歴に保存</button>
+  <button id="btnSave">よく使うに保存</button>
   <button id="btnConvert" title="今の見積書の内容で請求書を作る">見積 → 請求書にする</button>
   <span class="sp"></span>
   <button id="btnProfile">発行者の設定</button>
@@ -168,8 +161,13 @@ dialog .foot{display:flex;gap:8px;justify-content:flex-end;padding:12px 18px;bor
     </div>
 
     <div class="panel">
-      <h2>保存した書類<span class="sp"></span><input id="histSearch" placeholder="検索" style="width:140px;font-size:12px"></h2>
-      <div class="list" id="history"></div>
+      <h2>よく使う</h2>
+      <select id="history"></select>
+      <div class="row" style="margin-top:8px">
+        <button class="primary" id="histDup" title="これをコピーして新しく作る">複製して使う</button>
+        <button id="histOpen" title="保存した書類をそのまま開いて直す">開く</button>
+        <button class="danger" id="histDel" style="flex:0 0 auto">削除</button>
+      </div>
       <div class="hint">データはこのブラウザの中だけに保存されるよ。月1くらいで「バックアップ」からファイルに書き出しておくと安心。</div>
     </div>
   </div>
@@ -211,7 +209,7 @@ dialog .foot{display:flex;gap:8px;justify-content:flex-end;padding:12px 18px;bor
 <dialog id="dlgBackup">
   <div class="body">
     <h2 style="margin-top:0;font-size:16px">バックアップ</h2>
-    <p class="hint">発行者設定・登録品目・保存した書類をまとめて1つのファイルに書き出す／読み込むよ。</p>
+    <p class="hint">発行者設定・登録品目・よく使う書類をまとめて1つのファイルに書き出す／読み込むよ。</p>
     <div class="row" style="margin-top:10px">
       <button id="bkExport" class="primary">書き出す（.json）</button>
       <button id="bkImportBtn">読み込む</button>
@@ -448,19 +446,18 @@ function refresh() { renderSheet(); renderHistory(); }
 
 // ---------- 履歴 ----------
 function renderHistory() {
-  const q = $('histSearch').value.trim();
-  const list = store.docs.filter(d => !q || [d.clientName, d.subject].join(' ').includes(q))
-    .sort((a,b) => (b.issueDate||'').localeCompare(a.issueDate||''));
-  $('history').innerHTML = list.length ? list.map(d => {
-    const c = calc(d);
-    return `<div class="li" data-id="${d.id}">
-      <div class="grow"><span class="tag ${d.type==='invoice'?'inv':''}">${d.type==='invoice'?'請求':'見積'}</span>${esc(d.clientName||'（宛先なし）')}
-        <div class="sub">${jpDate(d.issueDate)}・${yen(d.withholding && d.type==='invoice' ? c.pay : c.total)}${d.subject ? '・'+esc(d.subject) : ''}</div></div>
-      <button class="small" data-act="open">開く</button>
-      <button class="small" data-act="dup" title="これをコピーして新しく作る">複製</button>
-      <button class="small danger" data-act="del">削除</button>
-    </div>`;
-  }).join('') : '<div class="empty">まだ保存した書類はないよ</div>';
+  const sel = $('history'), keep = sel.value;
+  const list = [...store.docs].sort((a,b) => (b.issueDate||'').localeCompare(a.issueDate||''));
+  sel.innerHTML = list.length
+    ? '<option value="">選んでね（' + list.length + '件）</option>' + list.map(d => {
+        const c = calc(d);
+        const label = [d.type==='invoice'?'請求':'見積', d.clientName||'（宛先なし）', d.subject,
+          d.issueDate ? d.issueDate.slice(2).replace(/-/g, '.') : '', yen(d.withholding && d.type==='invoice' ? c.pay : c.total)].filter(Boolean).join('｜');
+        return `<option value="${d.id}">${esc(label)}</option>`;
+      }).join('')
+    : '<option value="">まだ保存した書類はないよ</option>';
+  if (list.some(d => d.id === keep)) sel.value = keep;
+  ['histDup','histOpen','histDel'].forEach(id => $(id).disabled = !sel.value);
 }
 
 function saveDoc(silent) {
@@ -614,11 +611,11 @@ $('btnPdf').onclick = async () => {
   } finally { btn.disabled = false; btn.textContent = 'PDFダウンロード'; }
 };
 
-$('histSearch').addEventListener('input', renderHistory);
-$('history').addEventListener('click', e => {
-  const act = e.target.dataset.act; if (!act) return;
-  const id = e.target.closest('.li').dataset.id;
-  const d = store.docs.find(x => x.id === id); if (!d) return;
+$('history').addEventListener('change', renderHistory);
+[['histOpen','open'],['histDup','dup'],['histDel','del']].forEach(([btn, act]) => $(btn).onclick = () => histAction(act));
+function histAction(act) {
+  const id = $('history').value;
+  const d = store.docs.find(x => x.id === id); if (!d) return toast('先にプルダウンから選んでね');
   if (act === 'open') { doc = JSON.parse(JSON.stringify(d)); renderForm(); renderSheet(); window.scrollTo({top:0, behavior:'smooth'}); }
   if (act === 'dup') {
     const n = JSON.parse(JSON.stringify(d));
@@ -627,10 +624,10 @@ $('history').addEventListener('click', e => {
     doc = n; renderForm(); renderSheet(); toast('コピーしたよ。内容を直して保存してね');
   }
   if (act === 'del' && confirm(`${jpDate(d.issueDate)}の${d.type==='invoice'?'請求書':'見積書'}（${d.clientName||'宛先なし'}）を削除する？`)) {
-    store.docs = store.docs.filter(x => x.id !== id); persist(); renderHistory();
+    store.docs = store.docs.filter(x => x.id !== id); persist(); $('history').value = ''; renderHistory();
     if (doc.id === id) doc.id = null;
   }
-});
+}
 
 // ---------- 発行者設定 ----------
 const PF = ['label','name','rep','zip','address','tel','email','regNo','bank'];
