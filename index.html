@@ -416,7 +416,7 @@ function renderSheet() {
     : `<tr><td>${t.rate}%対象（税抜）</td><td class="num">${yen(t.base)}</td></tr><tr><td>${taxWord}（${t.rate}%）</td><td class="num">${yen(t.tax)}</td></tr>`).join('');
   const whRows = c.wh ? `<tr><td>源泉徴収税額</td><td class="num">-${yen(c.wh)}</td></tr><tr class="big"><td>差引ご請求額</td><td class="num">${yen(c.pay)}</td></tr>` : '';
   const headline = isInv && c.wh ? c.pay : c.total;
-  const addr = [p.zip ? '〒' + esc(p.zip) : '', esc(p.address)].filter(Boolean).join(' ');
+  const addr = [p.zip ? '〒' + esc(p.zip) : '', esc(p.address)].filter(Boolean).join('<br>'); // 郵便番号の後で改行
 
   $('sheet').innerHTML = `
     <div class="meta gothic">発行日 ${jpDate(doc.issueDate)}</div>
