@@ -95,7 +95,8 @@ dialog .foot{display:flex;gap:8px;justify-content:flex-end;padding:12px 18px;bor
   <h1>見積書・請求書メーカー</h1>
   <button id="btnNew">＋ 新規作成</button>
   <button id="btnSave">よく使うに保存</button>
-  <button id="btnConvert" title="今の見積書の内容で請求書を作る">見積 → 請求書にする</button>
+  <button id="btnToDelivery" title="今の内容で納品書を作る">→ 納品書にする</button>
+  <button id="btnToInvoice" title="今の内容で請求書を作る">→ 請求書にする</button>
   <span class="sp"></span>
   <button id="btnProfile">発行者の設定</button>
   <button id="btnBackup">バックアップ</button>
@@ -120,6 +121,7 @@ dialog .foot{display:flex;gap:8px;justify-content:flex-end;padding:12px 18px;bor
     <div class="panel">
       <div class="seg" id="typeSeg">
         <button data-type="quote">見積書</button>
+        <button data-type="delivery">納品書</button>
         <button data-type="invoice">請求書</button>
       </div>
       <label>発行者</label>
@@ -277,11 +279,20 @@ function persist() {
 }
 load();
 
+// ---------- 書類の種類 ----------
+const TYPES = {
+  quote:    {name:'見積書', short:'見積', lead:'下記のとおりお見積り申し上げます。', total:'お見積金額', date:'有効期限'},
+  delivery: {name:'納品書', short:'納品', lead:'下記のとおり納品いたしました。',   total:'合計金額',   date:'納品日'},
+  invoice:  {name:'請求書', short:'請求', lead:'下記のとおりご請求申し上げます。', total:'ご請求金額', date:'お支払期限'},
+};
+const T = d => TYPES[d.type] || TYPES.invoice;
+
 // ---------- 日付の初期値 ----------
 function endOfNextMonth(from) { const d = new Date(from); return new Date(d.getFullYear(), d.getMonth()+2, 0); }
 function plusDays(from, n) { const d = new Date(from); d.setDate(d.getDate()+n); return d; }
 function defaultDue(type, issue) {
   const base = issue ? new Date(issue + 'T00:00:00') : new Date();
+  if (type === 'delivery') return ymd(base); // 納品日は発行日と同じ日から
   return ymd(type === 'invoice' ? endOfNextMonth(base) : plusDays(base, 30));
 }
 
@@ -306,7 +317,7 @@ function fileParts() {
   return {
     '{宛先}': (doc.clientName ? doc.clientName + (doc.honorific || '') : '宛先未入力').replace(/[\\/:*?"<>|\s]+/g, ''),
     '{日付}': (doc.issueDate || ymd(new Date())).slice(2).replace(/-/g, '.'),
-    '{種類}': doc.type === 'invoice' ? '請求書' : '見積書',
+    '{種類}': T(doc).name,
   };
 }
 // 「8月分」などの月は、発行日の月から何か月ずれているかで覚える（{月+0}＝発行月、{月-1}＝前月）
@@ -341,7 +352,7 @@ function renderFileName() {
   const el = $('fileName');
   if (document.activeElement !== el) el.value = fillTpl(doc.fileName || DEFAULT_TPL);
   $('fileNameReset').style.display = doc.fileName ? '' : 'none';
-  $('fileNameHint').textContent = '日付・請求書/見積書・宛先・「〇月」「26.09」の部分は、内容に合わせて自動で変わるよ。それ以外は自由に書き換えてOK';
+  $('fileNameHint').textContent = '日付・書類の種類・宛先・「〇月」「26.09」の部分は、内容に合わせて自動で変わるよ。それ以外は自由に書き換えてOK';
 }
 
 // ---------- 計算 ----------
@@ -381,9 +392,10 @@ function renderForm() {
   $('honorific').value = doc.honorific;
   $('withholding').checked = !!doc.withholding;
   $('showBank').checked = doc.showBank !== false;
-  $('dueLabel').textContent = doc.type === 'quote' ? '有効期限' : '支払期限';
+  $('dueLabel').textContent = T(doc).date.replace('お', '');
   $('bankWrap').style.display = doc.type === 'invoice' ? '' : 'none';
-  $('btnConvert').style.display = doc.type === 'quote' ? '' : 'none';
+  $('btnToDelivery').style.display = doc.type === 'quote' ? '' : 'none';
+  $('btnToInvoice').style.display = doc.type === 'invoice' ? 'none' : '';
   $('clientList').innerHTML = [...new Set(store.docs.map(d => d.clientName).filter(Boolean))].map(n => `<option value="${esc(n)}">`).join('');
   document.querySelectorAll('#modeSeg button').forEach(b => b.classList.toggle('on', b.dataset.mode === (doc.priceMode || 'excl')));
   $('presetSel').innerHTML = '<option value="">登録品目から追加…</option>' +
@@ -416,7 +428,8 @@ function renderSheet() {
   const p = profile(doc.profileId);
   const c = calc(doc);
   const isInv = doc.type === 'invoice';
-  const title = isInv ? '請求書' : '見積書';
+  const isDel = doc.type === 'delivery';
+  const title = T(doc).name;
   const minRows = 8;
   const rows = doc.items.map(it => {
     const amt = Math.floor((+it.qty||0) * (+it.price||0));
@@ -431,7 +444,7 @@ function renderSheet() {
     : incl
     ? `<tr><td>${t.rate}%対象（税込）</td><td class="num">${yen(t.gross)}</td></tr><tr><td>　内${taxWord}（${t.rate}%）</td><td class="num">${yen(t.tax)}</td></tr>`
     : `<tr><td>${t.rate}%対象（税抜）</td><td class="num">${yen(t.base)}</td></tr><tr><td>${taxWord}（${t.rate}%）</td><td class="num">${yen(t.tax)}</td></tr>`).join('');
-  const whRows = c.wh ? `<tr><td>源泉徴収税額</td><td class="num">-${yen(c.wh)}</td></tr><tr class="big"><td>差引ご請求額</td><td class="num">${yen(c.pay)}</td></tr>` : '';
+  const whRows = c.wh && !isDel ? `<tr><td>源泉徴収税額</td><td class="num">-${yen(c.wh)}</td></tr><tr class="big"><td>差引ご請求額</td><td class="num">${yen(c.pay)}</td></tr>` : '';
   const headline = isInv && c.wh ? c.pay : c.total;
   const addr = [p.zip ? '〒' + esc(p.zip) : '', esc(p.address)].filter(Boolean).join('<br>'); // 郵便番号の後で改行
 
@@ -442,11 +455,11 @@ function renderSheet() {
       <div class="to">
         <div class="name">${esc(doc.clientName) || '&nbsp;'}　${esc(doc.honorific)}</div>
         ${doc.clientContact ? `<div class="contact">${esc(doc.clientContact)}</div>` : ''}
-        <div class="lead">${isInv ? '下記のとおりご請求申し上げます。' : '下記のとおりお見積り申し上げます。'}</div>
-        <div class="total-box"><div class="k">${isInv ? (c.wh ? '差引ご請求額' : 'ご請求金額') : 'お見積金額'}</div><div class="v">${yen(headline)}<span style="font-size:9pt;font-weight:400">（税込）</span></div></div>
+        <div class="lead">${T(doc).lead}</div>
+        <div class="total-box"><div class="k">${isInv && c.wh ? '差引ご請求額' : T(doc).total}</div><div class="v">${yen(headline)}<span style="font-size:9pt;font-weight:400">（税込）</span></div></div>
         <table class="kv">
           ${doc.subject ? `<tr><td>件名</td><td>${esc(doc.subject)}</td></tr>` : ''}
-          ${doc.dueDate ? `<tr><td>${isInv ? 'お支払期限' : '有効期限'}</td><td>${jpDate(doc.dueDate)}</td></tr>` : ''}
+          ${doc.dueDate ? `<tr><td>${T(doc).date}</td><td>${jpDate(doc.dueDate)}</td></tr>` : ''}
         </table>
       </div>
       <div class="from">
@@ -484,7 +497,7 @@ function renderHistory() {
   sel.innerHTML = list.length
     ? '<option value="">選んでね（' + list.length + '件）</option>' + list.map(d => {
         const c = calc(d);
-        const label = d.savedName || [d.type==='invoice'?'請求':'見積', d.clientName||'（宛先なし）', d.subject,
+        const label = d.savedName || [T(d).short, d.clientName||'（宛先なし）', d.subject,
           d.issueDate ? d.issueDate.slice(2).replace(/-/g, '.') : '', yen(d.withholding && d.type==='invoice' ? c.pay : c.total)].filter(Boolean).join('｜');
         return `<option value="${d.id}">${esc(label)}</option>`;
       }).join('')
@@ -596,15 +609,18 @@ $('btnSave').onclick = () => {
 };
 $('saveForm').addEventListener('submit', () => { doc.savedName = $('saveName').value.trim(); saveDoc(); $('history').value = doc.id; renderHistory(); });
 $('saveCancel').onclick = () => $('dlgSave').close();
-$('btnConvert').onclick = () => {
-  if (doc.type !== 'quote') return;
+// 見積書→納品書→請求書：今の内容を引き継いで別の書類を作る（発行日・期限は新しくする）
+function convertTo(type) {
+  if (doc.type === type) return;
   const src = JSON.parse(JSON.stringify(doc));
-  const inv = newDoc('invoice');
-  Object.assign(inv, {profileId: src.profileId, subject: src.subject, clientName: src.clientName, honorific: src.honorific,
+  const n = newDoc(type);
+  Object.assign(n, {profileId: src.profileId, subject: src.subject, clientName: src.clientName, honorific: src.honorific,
     clientContact: src.clientContact, items: src.items, priceMode: src.priceMode || 'excl', withholding: src.withholding, notes: src.notes, fileName: src.fileName || ''});
-  doc = inv; renderForm(); renderSheet();
-  toast('見積書の内容で請求書を作ったよ（発行日・期限は新しくしてある）');
-};
+  doc = n; renderForm(); renderSheet();
+  toast(`${TYPES[src.type].name}の内容で${TYPES[type].name}を作ったよ（発行日・期限は新しくしてある）`);
+}
+$('btnToDelivery').onclick = () => convertTo('delivery');
+$('btnToInvoice').onclick = () => convertTo('invoice');
 // ファイル名：手で変えていればそれを使う。なければ自動の名前
 function fileBase() {
   const name = fillTpl(doc.fileName || DEFAULT_TPL).replace(/\.pdf$/i, '').replace(/[\\/:*?"<>|]+/g, '').trim();
@@ -668,7 +684,7 @@ function histAction(act) {
     shiftItemMonths(n, d.issueDate, n.issueDate);
     doc = n; renderForm(); renderSheet(); toast('コピーしたよ。内容を直して保存してね');
   }
-  if (act === 'del' && confirm(`${jpDate(d.issueDate)}の${d.type==='invoice'?'請求書':'見積書'}（${d.clientName||'宛先なし'}）を削除する？`)) {
+  if (act === 'del' && confirm(`${jpDate(d.issueDate)}の${T(d).name}（${d.clientName||'宛先なし'}）を削除する？`)) {
     store.docs = store.docs.filter(x => x.id !== id); persist(); $('history').value = ''; renderHistory();
     if (doc.id === id) doc.id = null;
   }
@@ -742,7 +758,7 @@ $('bkCsv').onclick = () => {
   const q = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
   const lines = [...store.docs].sort((a,b) => (a.issueDate||'').localeCompare(b.issueDate||'')).map(d => {
     const c = calc(d);
-    return [d.type==='invoice'?'請求書':'見積書', d.issueDate, d.dueDate, d.clientName, d.subject,
+    return [T(d).name, d.issueDate, d.dueDate, d.clientName, d.subject,
       profile(d.profileId).label, c.subtotal, c.tax, c.total, c.wh, c.pay].map(q).join(',');
   });
   download(`見積請求_一覧_${ymd(new Date())}.csv`, '﻿' + [head.map(q).join(','), ...lines].join('\r\n'), 'text/csv');
