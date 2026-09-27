@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>明細書メーカー</title>
+<title>シニアサポート 売上明細書メーカー</title>
 <style>
 :root{
   --bg:#f3f4f6; --panel:#fff; --ink:#1f2937; --muted:#6b7280; --line:#d1d5db;
@@ -79,10 +79,30 @@ dialog .foot{display:flex;gap:8px;justify-content:flex-end;padding:12px 18px;bor
 .sheet .sum tr.big td{font-weight:700;font-size:10.5pt}
 .sheet .box{border:1px solid #555;padding:2.5mm 3mm;margin-top:5mm;font-size:9.5pt;white-space:pre-wrap}
 .sheet .box .t{font-weight:600;margin-bottom:1mm}
-.sheet h1.stmt{letter-spacing:.15em;padding-left:.15em;font-size:19pt}
-.sheet .band{background:#d9d9d9;text-align:center;font-weight:600;padding:1.5mm;margin-top:6mm;border:1px solid #555;border-bottom:0}
-.sheet table.items.stmt{margin-top:0}
-.sheet table.items tr.total td{font-weight:700;background:#f7f7f7}
+/* シニアサポート 売上明細書（Googleスプレッドシートの様式を再現。寸法はA4のmm） */
+.sheet.ss{padding:0;font-family:Arial,"Helvetica Neue","Hiragino Kaku Gothic ProN","Hiragino Sans","Yu Gothic","Meiryo",sans-serif;color:#000;line-height:1.3}
+.ss .page{position:relative;width:175mm;margin-left:17.8mm;padding-top:22.5mm}
+.ss .title{text-align:center;font-size:16pt;font-weight:700;height:10mm}
+.ss .head{display:flex;margin-top:2mm}
+.ss .left{width:90.4mm}
+.ss .right{padding-left:19.6mm;font-size:10pt;padding-top:.5mm}
+.ss .to{font-size:13pt;font-weight:700;text-align:center;border-bottom:1px solid #000;padding:2mm 1mm 1.2mm;margin-top:2.5mm;overflow-wrap:anywhere}
+.ss .contact{font-size:9.5pt;text-align:center;margin-top:1mm}
+.ss .sumbox{border:1px solid #000;margin-top:5.3mm}
+.ss .sumbox .k{background:#d9d9d9;text-align:center;font-weight:700;font-size:12pt;height:10.6mm;display:flex;align-items:center;justify-content:center;border-bottom:1px solid #000}
+.ss .sumbox .v{text-align:center;font-weight:700;font-size:14pt;height:14.8mm;display:flex;align-items:center;justify-content:center}
+.ss .lbl{font-weight:700;font-size:9pt;margin-right:3.5mm}
+.ss .issuer{margin-top:7mm}
+.ss .issuer .nm{font-weight:700;font-size:11pt;margin-top:1mm}
+.ss .issuer .sub{font-size:8.5pt;margin-top:.8mm;line-height:1.45}
+.ss table{width:175mm;border-collapse:collapse;table-layout:fixed;margin-top:5.5mm;font-size:10pt;border:1px solid #999}
+.ss th,.ss td{border:1px solid #bbb;height:6.7mm;padding:0 1.6mm;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ss thead tr.band th{background:#d9d9d9;height:11.5mm;font-size:12pt;font-weight:700;border-color:#999}
+.ss thead tr.cols th{background:#efefef;height:7.2mm;font-weight:700}
+.ss td.c{text-align:center}
+.ss tr.total td{border-top:2px solid #000;height:6.9mm;text-align:center}
+.ss .note{font-size:6pt;margin-top:2.5mm}
+.ss .memo{border:1px solid #999;padding:2mm 3mm;margin-top:4mm;font-size:9pt;white-space:pre-wrap}
 .sheet .foot-note{font-size:8.5pt;color:#444;margin-top:2mm}
 
 @media print{
@@ -96,7 +116,7 @@ dialog .foot{display:flex;gap:8px;justify-content:flex-end;padding:12px 18px;bor
 </head>
 <body>
 <header class="app">
-  <h1>明細書メーカー</h1>
+  <h1>シニアサポート 売上明細書</h1>
   <button id="btnNew">＋ 新規作成</button>
   <button id="btnSave">よく使うに保存</button>
   <button id="btnToDelivery" style="display:none"></button>
@@ -129,10 +149,10 @@ dialog .foot{display:flex;gap:8px;justify-content:flex-end;padding:12px 18px;bor
       <label>発行者</label>
       <select id="profileSel"></select>
       <div class="row">
-        <div><label>発行日</label><input id="issueDate" type="date"></div>
+        <div><label>作成日</label><input id="issueDate" type="date"></div>
         <div id="dueWrap"><label id="dueLabel">支払期限</label><input id="dueDate" type="date"></div>
       </div>
-      <label>件名</label><input id="subject" placeholder="例：〇〇動画 編集業務">
+      <div style="display:none"><label>件名</label><input id="subject"></div>
     </div>
 
     <div class="panel">
@@ -151,8 +171,8 @@ dialog .foot{display:flex;gap:8px;justify-content:flex-end;padding:12px 18px;bor
         <button class="small" id="btnAddItem">＋ 行を追加</button>
       </h2>
       <div id="stmtOpts" style="margin-bottom:10px">
-        <label>金額の列の名前</label><input id="stmtAmountLabel" placeholder="金額（例：サポート料金）">
-        <div class="hint">明細書は、日付・お客様名・金額・内容の表で作るよ。金額は税込で入力してね。</div>
+        <div class="hint">1回のサポートごとに1行。サポート料金は<b>税込</b>で入力してね。「＋ 行を追加」を押すと、前の行のお客様名と内容がコピーされるよ（最大19行まで1ページに収まる）。</div>
+        <label class="check"><input type="checkbox" id="showIssuerDetail"> 発行元に住所・連絡先も表示する</label>
       </div>
       <div class="seg" id="modeSeg" style="margin-bottom:10px">
         <button data-mode="excl">単価は税抜（外税）</button>
@@ -292,7 +312,7 @@ const TYPES = {
   quote:    {name:'見積書', short:'見積', lead:'下記のとおりお見積り申し上げます。', total:'お見積金額', date:'有効期限'},
   delivery: {name:'納品書', short:'納品', lead:'下記のとおり納品いたしました。',   total:'合計金額',   date:'納品日'},
   invoice:  {name:'請求書', short:'請求', lead:'下記のとおりご請求申し上げます。', total:'ご請求金額', date:'お支払期限'},
-  statement:{name:'明細書', short:'明細', lead:'',                               total:'売上額計',   date:''},
+  statement:{name:'売上明細書', short:'明細', lead:'',                               total:'売上額計',   date:''},
 };
 const T = d => TYPES[d.type] || TYPES.invoice;
 
@@ -409,7 +429,7 @@ function renderForm() {
   $('dueWrap').style.visibility = isStmt ? 'hidden' : '';
   ['modeSeg','taxHint','whWrap'].forEach(id => $(id).style.display = isStmt ? 'none' : '');
   $('stmtOpts').style.display = isStmt ? '' : 'none';
-  $('stmtAmountLabel').value = doc.stmtAmountLabel || '';
+  $('showIssuerDetail').checked = !!doc.showIssuerDetail;
   $('clientList').innerHTML = [...new Set(store.docs.map(d => d.clientName).filter(Boolean))].map(n => `<option value="${esc(n)}">`).join('');
   document.querySelectorAll('#modeSeg button').forEach(b => b.classList.toggle('on', b.dataset.mode === (doc.priceMode || 'excl')));
   $('presetSel').innerHTML = '<option value="">登録品目から追加…</option>' +
@@ -429,7 +449,7 @@ function renderItems() {
       <div class="row">
         <div style="flex:1.2"><label>日付</label><input data-k="date" type="date" value="${esc(it.date || '')}"></div>
         <div><label>お客様名</label><input data-k="customer" value="${esc(it.customer || '')}" placeholder="〇〇様"></div>
-        <div><label>金額（税込）</label><input data-k="price" type="number" step="1" value="${it.price}"></div>
+        <div><label>サポート料金（税込）</label><input data-k="price" type="number" step="1" value="${it.price}"></div>
       </div>
     </div>`).join('');
     return;
@@ -489,29 +509,46 @@ function renderSheet() {
         ${p.regNo && !p.exempt ? `<div>登録番号 ${esc(p.regNo)}</div>` : ''}
       </div>`;
 
-  // 明細書：日付・お客様名・金額・内容の表（金額は税込）
-  if (doc.type === 'statement') {
-    const md = s => { if (!s) return ''; const [, m, d] = s.split('-').map(Number); return `${m}/${d}`; };
-    const srows = doc.items.map(it => !it.name && !it.date && !it.customer && !+it.price ? '<tr><td></td><td></td><td></td><td></td></tr>' : `<tr><td class="c">${md(it.date)}</td><td class="c">${esc(it.customer || '')}</td><td class="num">${it.price === '' ? '' : num(Math.floor((+it.qty || 1) * (+it.price || 0)))}</td><td>${esc(it.name)}</td></tr>`);
-    while (srows.length < 15) srows.push('<tr><td></td><td></td><td></td><td></td></tr>');
+  // シニアサポート 売上明細書（スプレッドシートの様式を再現。金額は税込）
+  $('sheet').classList.add('ss');
+  {
+    const md = v => { if (!v) return ''; const [, m, d] = v.split('-').map(Number); return `${m}/${d}`; };
+    const slash = v => v ? v.replace(/-/g, '/') : '';
+    const empty = '<tr><td></td><td></td><td></td><td></td></tr>';
+    const rows = doc.items.map(it => !it.name && !it.date && !it.customer && !+it.price ? empty
+      : `<tr><td class="c">${md(it.date)}</td><td class="c">${esc(it.customer || '')}</td><td class="c">${it.price === '' ? '' : num(Math.floor((+it.qty || 1) * (+it.price || 0)))}</td><td>${esc(it.name)}</td></tr>`);
+    while (rows.length < 19) rows.push(empty);
+    const issuerName = [p.name, p.rep].filter(Boolean).map(esc).join('　') || '（発行者の設定から入力してね）';
+    const detail = doc.showIssuerDetail ? [addr, p.tel ? 'TEL：' + esc(p.tel) : '', p.email ? 'Mail：' + esc(p.email) : '', p.regNo && !p.exempt ? '登録番号 ' + esc(p.regNo) : ''].filter(Boolean).join('<br>') : '';
     $('sheet').innerHTML = `
-    <div class="meta gothic">作成日 ${jpDate(doc.issueDate)}</div>
-    <h1 class="stmt">${doc.subject ? esc(doc.subject) + '　' : ''}売上明細書</h1>
-    <div class="top">
-      <div class="to">
-        <div class="name">${esc(doc.clientName) || '&nbsp;'}　${esc(doc.honorific)}</div>
-        ${doc.clientContact ? `<div class="contact">${esc(doc.clientContact)}</div>` : ''}
-        <div class="total-box" style="margin-top:5mm"><div class="k">${T(doc).total}</div><div class="v">${yen(c.total)}</div></div>
-      </div>${fromHtml}
-    </div>
-    <div class="band">明細</div>
-    <table class="items stmt">
-      <thead><tr><th style="width:15%">日付</th><th style="width:22%">お客様名</th><th style="width:20%">${esc(doc.stmtAmountLabel || '金額')}</th><th>内容</th></tr></thead>
-      <tbody>${srows.join('')}<tr class="total"><td class="c">計</td><td></td><td class="num">${num(c.total)}</td><td></td></tr></tbody>
-    </table>
-    <div class="foot-note">※全ての金額は税込金額です</div>
-    ${doc.notes ? `<div class="box"><div class="t">備考</div>${esc(doc.notes)}</div>` : ''}
-  `;
+    <div class="page">
+      <div class="title">シニアサポート　売上明細書</div>
+      <div class="head">
+        <div class="left">
+          <div class="to">${esc(doc.clientName) || '&nbsp;'} ${esc(doc.honorific)}</div>
+          ${doc.clientContact ? `<div class="contact">${esc(doc.clientContact)}</div>` : ''}
+          <div class="sumbox"><div class="k">売上額計</div><div class="v">${yen(c.total)}</div></div>
+        </div>
+        <div class="right">
+          <div><span class="lbl">作成日</span>${slash(doc.issueDate)}</div>
+          <div class="issuer">
+            <div class="lbl">発行元</div>
+            <div class="nm">${issuerName}</div>
+            ${detail ? `<div class="sub">${detail}</div>` : ''}
+          </div>
+        </div>
+      </div>
+      <table>
+        <colgroup><col style="width:30.2mm"><col style="width:30mm"><col style="width:30.2mm"><col></colgroup>
+        <thead>
+          <tr class="band"><th colspan="4">明細</th></tr>
+          <tr class="cols"><th>日付</th><th>お客様名</th><th>サポート料金</th><th>内容</th></tr>
+        </thead>
+        <tbody>${rows.join('')}<tr class="total"><td colspan="2">計</td><td>${num(c.total)}</td><td></td></tr></tbody>
+      </table>
+      <div class="note">※全ての金額は税込金額です</div>
+      ${doc.notes ? `<div class="memo">${esc(doc.notes)}</div>` : ''}
+    </div>`;
     return;
   }
 
@@ -598,7 +635,7 @@ $('issueDate').addEventListener('change', e => {
   if (!doc.id) { doc.dueDate = defaultDue(doc.type, doc.issueDate); $('dueDate').value = doc.dueDate; }
   renderSheet();
 });
-$('stmtAmountLabel').addEventListener('input', e => { doc.stmtAmountLabel = e.target.value; renderSheet(); });
+$('showIssuerDetail').addEventListener('change', e => { doc.showIssuerDetail = e.target.checked; renderSheet(); });
 $('fileName').addEventListener('input', e => {
   const v = e.target.value.trim();
   const tpl = v ? toTpl(v) : '';
@@ -647,7 +684,12 @@ $('items').addEventListener('click', e => {
   }
   renderItems(); renderSheet();
 });
-$('btnAddItem').onclick = () => { doc.items.push({name:'', qty:1, unit:'式', price:0, rate:10}); renderItems(); renderSheet(); };
+$('btnAddItem').onclick = () => {
+  const last = doc.items[doc.items.length - 1] || {};
+  doc.items.push({name: last.name || '', customer: last.customer || '', date: '', qty:1, unit:'式', price:'', rate:10});
+  renderItems(); renderSheet();
+  const inputs = document.querySelectorAll('#items [data-k=date]'); inputs[inputs.length - 1]?.focus();
+};
 $('presetSel').addEventListener('change', e => {
   if (e.target.value === '') return;
   const p = store.presets[+e.target.value];
