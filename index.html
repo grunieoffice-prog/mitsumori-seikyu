@@ -147,6 +147,7 @@ dialog .foot{display:flex;gap:8px;justify-content:flex-end;padding:12px 18px;bor
       </div>
       <div id="items"></div>
       <div class="hint">消費税は税率ごとにまとめて計算して、1円未満は切り捨て（インボイスの計算ルール）。内税のときは「内消費税」として表示するよ。</div>
+      <div class="hint">品目の「8月分」などの月は、発行日を変えたり複製したりすると一緒にずれるよ。</div>
       <label class="check"><input type="checkbox" id="withholding"> 源泉徴収する（個人→法人への デザイン料・原稿料 など）</label>
       <div class="hint">税抜金額に10.21%（100万円超の部分は20.42%）で計算して、差引額を表示するよ。</div>
     </div>
@@ -341,6 +342,7 @@ function calc(d) {
 
 // ---------- 入力フォームの描画 ----------
 function renderForm() {
+  monthBase = doc.issueDate;
   document.querySelectorAll('#typeSeg button').forEach(b => b.classList.toggle('on', b.dataset.type === doc.type));
   $('profileSel').innerHTML = store.profiles.map(p => `<option value="${p.id}">${esc(p.label || p.name || '（名前未設定）')}</option>`).join('');
   $('profileSel').value = doc.profileId;
@@ -475,8 +477,22 @@ function saveDoc(silent) {
 // ---------- イベント ----------
 const bindField = (id, key, after) => $(id).addEventListener('input', e => { doc[key] = e.target.value; after && after(); renderSheet(); });
 ['subject','clientName','clientContact','notes','dueDate'].forEach(k => bindField(k, k));
+// 明細の「8月分」などの月を、発行日がずれた分だけ一緒にずらす
+const monthIndex = date => /^\d{4}-\d{2}/.test(date || '') ? +date.slice(0, 4) * 12 + +date.slice(5, 7) - 1 : null;
+const shiftMonths = (text, delta) => String(text ?? '').replace(/(?<![\d{])(1[0-2]|0?[1-9])月/g,
+  (_, m) => (((+m - 1 + delta) % 12 + 12) % 12 + 1) + '月');
+function shiftItemMonths(d, fromDate, toDate) {
+  const a = monthIndex(fromDate), b = monthIndex(toDate);
+  if (a === null || b === null || a === b) return;
+  d.items.forEach(it => it.name = shiftMonths(it.name, b - a));
+}
+let monthBase = null; // 最後に有効だった発行日（入力途中の日付でずれないように）
 $('issueDate').addEventListener('change', e => {
   doc.issueDate = e.target.value;
+  if (monthIndex(doc.issueDate) !== null) {
+    if (monthBase) { shiftItemMonths(doc, monthBase, doc.issueDate); renderItems(); }
+    monthBase = doc.issueDate;
+  }
   if (!doc.id) { doc.dueDate = defaultDue(doc.type, doc.issueDate); $('dueDate').value = doc.dueDate; }
   renderSheet();
 });
@@ -606,6 +622,7 @@ $('history').addEventListener('click', e => {
   if (act === 'dup') {
     const n = JSON.parse(JSON.stringify(d));
     n.id = null; n.issueDate = ymd(new Date()); n.dueDate = defaultDue(n.type, n.issueDate);
+    shiftItemMonths(n, d.issueDate, n.issueDate);
     doc = n; renderForm(); renderSheet(); toast('コピーしたよ。内容を直して保存してね');
   }
   if (act === 'del' && confirm(`${jpDate(d.issueDate)}の${d.type==='invoice'?'請求書':'見積書'}（${d.clientName||'宛先なし'}）を削除する？`)) {
