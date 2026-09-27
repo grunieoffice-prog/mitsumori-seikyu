@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>見積書・請求書メーカー</title>
+<style>
+:root{
+  --bg:#f3f4f6; --panel:#fff; --ink:#1f2937; --muted:#6b7280; --line:#d1d5db;
+  --accent:#2563eb; --accent-ink:#fff; --danger:#dc2626; --soft:#eef2ff;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Hiragino Kaku Gothic ProN","Hiragino Sans","Yu Gothic","Meiryo",sans-serif;font-size:14px}
+header.app{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 16px;background:#111827;color:#fff;position:sticky;top:0;z-index:10}
+header.app h1{font-size:16px;margin:0 12px 0 0}
+header.app .sp{flex:1}
+button{font:inherit;border:1px solid var(--line);background:#fff;color:var(--ink);border-radius:6px;padding:6px 12px;cursor:pointer}
+button:hover{border-color:var(--accent)}
+button.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+button.danger{color:var(--danger)}
+button.small{padding:3px 8px;font-size:12px}
+header.app button{background:#374151;color:#fff;border-color:#4b5563}
+header.app button.primary{background:var(--accent);border-color:var(--accent)}
+.layout{display:grid;grid-template-columns:minmax(360px,460px) 1fr;gap:16px;padding:16px;align-items:start}
+@media (max-width:1000px){.layout{grid-template-columns:1fr}}
+.panel{background:var(--panel);border-radius:10px;padding:14px 16px;margin-bottom:14px;box-shadow:0 1px 2px rgba(0,0,0,.06)}
+.panel h2{font-size:14px;margin:0 0 10px;display:flex;align-items:center;gap:8px}
+.panel h2 .sp{flex:1}
+label{display:block;font-size:12px;color:var(--muted);margin:8px 0 3px}
+input,select,textarea{font:inherit;width:100%;padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--ink)}
+textarea{min-height:60px;resize:vertical}
+.row{display:flex;gap:8px}.row>*{flex:1}
+.seg{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{flex:1;border:0;border-radius:0;padding:8px}
+.seg button.on{background:var(--accent);color:#fff}
+.check{display:flex;align-items:center;gap:6px;margin-top:10px;color:var(--ink);font-size:13px}
+.check input{width:auto}
+.item{border:1px solid var(--line);border-radius:8px;padding:8px;margin-bottom:8px;background:#fafafa}
+.item .row{margin-top:6px}
+.item .head{display:flex;gap:6px}
+.item .head input{flex:1}
+.hint{font-size:12px;color:var(--muted);margin-top:6px;line-height:1.5}
+.list{max-height:320px;overflow:auto;border:1px solid var(--line);border-radius:8px}
+.list .li{display:flex;gap:8px;align-items:center;padding:8px;border-bottom:1px solid #eee;font-size:13px}
+.list .li:last-child{border-bottom:0}
+.list .li .grow{flex:1;min-width:0}
+.list .li .sub{color:var(--muted);font-size:12px}
+.tag{display:inline-block;font-size:11px;padding:1px 6px;border-radius:4px;background:var(--soft);color:var(--accent);margin-right:4px}
+.tag.inv{background:#fef3c7;color:#92400e}
+.empty{padding:14px;color:var(--muted);text-align:center}
+.preview-wrap{overflow:auto}
+dialog{border:0;border-radius:12px;padding:0;width:min(560px,94vw);box-shadow:0 10px 40px rgba(0,0,0,.3)}
+dialog .body{padding:16px 18px;max-height:78vh;overflow:auto}
+dialog .foot{display:flex;gap:8px;justify-content:flex-end;padding:12px 18px;border-top:1px solid #eee}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#111827;color:#fff;padding:10px 16px;border-radius:8px;opacity:0;transition:.2s;pointer-events:none;z-index:99}
+.toast.show{opacity:1}
+
+/* ===== 帳票（A4） ===== */
+.sheet{width:210mm;min-height:297mm;margin:0 auto;background:#fff;padding:16mm 15mm;color:#111;box-shadow:0 2px 10px rgba(0,0,0,.12);font-size:10.5pt;line-height:1.5;font-family:"Hiragino Mincho ProN","Yu Mincho","YuMincho","MS Mincho",serif}
+.sheet .gothic{font-family:"Hiragino Kaku Gothic ProN","Yu Gothic","Meiryo",sans-serif}
+.sheet h1{text-align:center;font-size:22pt;letter-spacing:.6em;margin:0 0 6mm;padding-left:.6em;font-weight:600}
+.sheet .meta{text-align:right;font-size:9.5pt}
+.sheet .top{display:flex;justify-content:space-between;gap:8mm;margin-top:4mm}
+.sheet .to{flex:1}
+.sheet .to .name{font-size:15pt;border-bottom:1px solid #111;padding-bottom:1mm;margin-bottom:1mm}
+.sheet .to .contact{font-size:10pt}
+.sheet .lead{margin:5mm 0 3mm}
+.sheet .total-box{display:flex;align-items:stretch;border:1.5px solid #111;width:100mm}
+.sheet .total-box .k{background:#f0f0f0;padding:2.5mm 4mm;border-right:1px solid #111;font-weight:600;white-space:nowrap}
+.sheet .total-box .v{flex:1;padding:2.5mm 4mm;font-size:15pt;font-weight:700;text-align:right}
+.sheet .kv{margin-top:3mm;font-size:10pt}
+.sheet .kv td{padding:.6mm 3mm .6mm 0;vertical-align:top}
+.sheet .kv td:first-child{color:#444;white-space:nowrap}
+.sheet .from{width:72mm;position:relative;font-size:9.5pt;padding-top:2mm}
+.sheet .from .fname{font-size:11.5pt;font-weight:600}
+.sheet .from .stamp{position:absolute;right:0;top:0;width:20mm;height:20mm;object-fit:contain;opacity:.9}
+.sheet table.items{width:100%;border-collapse:collapse;margin-top:6mm;font-size:9.5pt}
+.sheet table.items th{background:#f0f0f0;border:1px solid #555;padding:1.6mm 2mm;font-weight:600}
+.sheet table.items td{border:1px solid #555;padding:1.6mm 2mm;height:7.5mm}
+.sheet .num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.sheet .c{text-align:center}
+.sheet .sum{display:flex;justify-content:flex-end;margin-top:3mm}
+.sheet .sum table{border-collapse:collapse;font-size:9.5pt;min-width:88mm}
+.sheet .sum td{border:1px solid #555;padding:1.4mm 2.5mm}
+.sheet .sum td:first-child{background:#f7f7f7}
+.sheet .sum tr.big td{font-weight:700;font-size:10.5pt}
+.sheet .box{border:1px solid #555;padding:2.5mm 3mm;margin-top:5mm;font-size:9.5pt;white-space:pre-wrap}
+.sheet .box .t{font-weight:600;margin-bottom:1mm}
+.sheet .foot-note{font-size:8.5pt;color:#444;margin-top:2mm}
+
+@media print{
+  @page{size:A4;margin:0}
+  body{background:#fff}
+  header.app,.editor,.toast,dialog{display:none!important}
+  .layout{display:block;padding:0}
+  .sheet{box-shadow:none;margin:0}
+}
+</style>
+</head>
+<body>
+<header class="app">
+  <h1>見積書・請求書メーカー</h1>
+  <button id="btnNew">＋ 新規作成</button>
+  <button id="btnSave">履歴に保存</button>
+  <button id="btnConvert" title="今の見積書の内容で請求書を作る">見積 → 請求書にする</button>
+  <span class="sp"></span>
+  <button id="btnProfile">発行者の設定</button>
+  <button id="btnBackup">バックアップ</button>
+  <button id="btnPrint">印刷</button>
+  <button id="btnPdf" class="primary">PDFダウンロード</button>
+</header>
+
+<div class="layout">
+  <div class="editor">
+    <div class="panel">
+      <div class="seg" id="typeSeg">
+        <button data-type="quote">見積書</button>
+        <button data-type="invoice">請求書</button>
+      </div>
+      <label>発行者</label>
+      <select id="profileSel"></select>
+      <div class="row">
+        <div><label>発行日</label><input id="issueDate" type="date"></div>
+        <div><label id="dueLabel">支払期限</label><input id="dueDate" type="date"></div>
+      </div>
+      <label>件名</label><input id="subject" placeholder="例：〇〇動画 編集業務">
+    </div>
+
+    <div class="panel">
+      <h2>宛先</h2>
+      <div class="row">
+        <div style="flex:3"><label>会社名・お名前</label><input id="clientName" list="clientList" placeholder="株式会社〇〇"></div>
+        <div style="flex:1"><label>敬称</label><select id="honorific"><option>御中</option><option>様</option></select></div>
+      </div>
+      <datalist id="clientList"></datalist>
+      <label>ご担当者（任意）</label><input id="clientContact" placeholder="〇〇 様">
+    </div>
+
+    <div class="panel">
+      <h2>明細<span class="sp"></span>
+        <select id="presetSel" style="width:auto;font-size:12px"><option value="">登録品目から追加…</option></select>
+        <button class="small" id="btnAddItem">＋ 行を追加</button>
+      </h2>
+      <div id="items"></div>
+      <div class="hint">単価は<b>税抜</b>で入力。消費税は税率ごとにまとめて計算（1円未満切り捨て）＝インボイスの計算ルールに沿ってるよ。</div>
+      <label class="check"><input type="checkbox" id="withholding"> 源泉徴収する（個人→法人への デザイン料・原稿料 など）</label>
+      <div class="hint">税抜金額に10.21%（100万円超の部分は20.42%）で計算して、差引額を表示するよ。</div>
+    </div>
+
+    <div class="panel">
+      <h2>備考</h2>
+      <textarea id="notes" placeholder="例：お振込手数料はご負担ください。"></textarea>
+      <label class="check" id="bankWrap"><input type="checkbox" id="showBank" checked> 振込先を表示する</label>
+    </div>
+
+    <div class="panel">
+      <h2>保存した書類<span class="sp"></span><input id="histSearch" placeholder="検索" style="width:140px;font-size:12px"></h2>
+      <div class="list" id="history"></div>
+      <div class="hint">データはこのブラウザの中だけに保存されるよ。月1くらいで「バックアップ」からファイルに書き出しておくと安心。</div>
+    </div>
+  </div>
+
+  <div class="preview-wrap"><div class="sheet" id="sheet"></div></div>
+</div>
+
+<!-- 発行者設定 -->
+<dialog id="dlgProfile">
+  <div class="body">
+    <h2 style="margin-top:0;font-size:16px">発行者の設定</h2>
+    <div class="row">
+      <select id="pfSel"></select>
+      <button class="small" id="pfAdd" style="flex:0 0 auto">＋ 追加</button>
+      <button class="small danger" id="pfDel" style="flex:0 0 auto">削除</button>
+    </div>
+    <label>設定の呼び名（画面上の表示用）</label><input id="pf_label" placeholder="例：個人事業 / 〇〇株式会社">
+    <label>屋号・会社名／氏名</label><input id="pf_name">
+    <label>代表者名など（任意）</label><input id="pf_rep">
+    <div class="row">
+      <div style="flex:1"><label>郵便番号</label><input id="pf_zip" placeholder="000-0000"></div>
+      <div style="flex:3"><label>住所</label><input id="pf_address"></div>
+    </div>
+    <div class="row">
+      <div><label>電話</label><input id="pf_tel"></div>
+      <div><label>メール</label><input id="pf_email"></div>
+    </div>
+    <label>インボイス登録番号（T+13桁／未登録なら空欄）</label><input id="pf_regNo" placeholder="T1234567890123">
+    <label>振込先</label><textarea id="pf_bank" placeholder="〇〇銀行 〇〇支店 普通 1234567&#10;口座名義 〇〇〇〇"></textarea>
+    <label>印影画像（任意・背景透過PNGがおすすめ）</label>
+    <div class="row"><input type="file" id="pf_stampFile" accept="image/*"><button class="small" id="pf_stampClear" style="flex:0 0 auto">画像を外す</button></div>
+  </div>
+  <div class="foot"><button id="pfClose" class="primary">閉じる</button></div>
+</dialog>
+
+<!-- バックアップ -->
+<dialog id="dlgBackup">
+  <div class="body">
+    <h2 style="margin-top:0;font-size:16px">バックアップ</h2>
+    <p class="hint">発行者設定・登録品目・保存した書類をまとめて1つのファイルに書き出す／読み込むよ。</p>
+    <div class="row" style="margin-top:10px">
+      <button id="bkExport" class="primary">書き出す（.json）</button>
+      <button id="bkImportBtn">読み込む</button>
+    </div>
+    <input type="file" id="bkImport" accept=".json,application/json" hidden>
+    <div class="row" style="margin-top:10px">
+      <button id="bkCsv">保存した書類の一覧をCSVで書き出す</button>
+    </div>
+    <p class="hint">CSVは売上の記帳（弥生への入力など）の確認用。</p>
+  </div>
+  <div class="foot"><button id="bkClose">閉じる</button></div>
+</dialog>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(() => {
+const KEY = 'mitsumoriSeikyu.v1';
+const $ = id => document.getElementById(id);
+const yen = n => '¥' + Math.round(n).toLocaleString('ja-JP');
+const num = n => Math.round(n).toLocaleString('ja-JP');
+const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const pad = n => String(n).padStart(2, '0');
+const ymd = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const jpDate = s => { if (!s) return ''; const [y,m,d] = s.split('-').map(Number); return `${y}年${m}月${d}日`; };
+
+// ---------- 保存データ ----------
+function blankProfile(label='個人事業') {
+  return {id: uid(), label, name:'', rep:'', zip:'', address:'', tel:'', email:'', regNo:'', bank:'', stamp:''};
+}
+let store;
+function load() {
+  try { store = JSON.parse(localStorage.getItem(KEY)); } catch { store = null; }
+  if (!store || !Array.isArray(store.profiles)) store = {profiles:[blankProfile()], presets:[], docs:[], lastProfileId:null};
+  if (!store.profiles.length) store.profiles.push(blankProfile());
+  store.presets ||= []; store.docs ||= [];
+}
+function persist() {
+  try { localStorage.setItem(KEY, JSON.stringify(store)); }
+  catch (e) { toast('保存できなかった…（容量オーバーかも。印影画像を小さくしてみて）'); }
+}
+load();
+
+// ---------- 日付の初期値 ----------
+function endOfNextMonth(from) { const d = new Date(from); return new Date(d.getFullYear(), d.getMonth()+2, 0); }
+function plusDays(from, n) { const d = new Date(from); d.setDate(d.getDate()+n); return d; }
+function defaultDue(type, issue) {
+  const base = issue ? new Date(issue + 'T00:00:00') : new Date();
+  return ymd(type === 'invoice' ? endOfNextMonth(base) : plusDays(base, 30));
+}
+
+// ---------- 今編集中の書類 ----------
+let doc;
+function newDoc(type = 'invoice') {
+  const profileId = store.lastProfileId && profile(store.lastProfileId, true) ? store.lastProfileId : store.profiles[0].id;
+  const issue = ymd(new Date());
+  return {
+    id: null, type, profileId, issueDate: issue, dueDate: defaultDue(type, issue),
+    subject:'', clientName:'', honorific:'御中', clientContact:'',
+    items:[{name:'', qty:1, unit:'式', price:0, rate:10}], withholding:false, notes:'', showBank:true
+  };
+}
+function profile(id, strict) { return store.profiles.find(p => p.id === id) || (strict ? null : store.profiles[0]); }
+
+// ---------- 計算 ----------
+function calc(d) {
+  const byRate = {};
+  let subtotal = 0;
+  d.items.forEach(it => {
+    const amt = Math.floor((+it.qty || 0) * (+it.price || 0));
+    subtotal += amt;
+    const r = String(it.rate);
+    byRate[r] = (byRate[r] || 0) + amt;
+  });
+  const taxes = Object.entries(byRate).map(([r, base]) => ({rate:+r, base, tax: +r > 0 ? Math.floor(base * +r / 100) : 0}))
+    .sort((a,b) => b.rate - a.rate);
+  const tax = taxes.reduce((s, t) => s + t.tax, 0);
+  const total = subtotal + tax;
+  let wh = 0;
+  if (d.withholding && subtotal > 0) {
+    wh = subtotal <= 1000000 ? Math.floor(subtotal * 0.1021) : Math.floor((subtotal - 1000000) * 0.2042 + 102100);
+  }
+  return {subtotal, taxes, tax, total, wh, pay: total - wh};
+}
+
+// ---------- 入力フォームの描画 ----------
+function renderForm() {
+  document.querySelectorAll('#typeSeg button').forEach(b => b.classList.toggle('on', b.dataset.type === doc.type));
+  $('profileSel').innerHTML = store.profiles.map(p => `<option value="${p.id}">${esc(p.label || p.name || '（名前未設定）')}</option>`).join('');
+  $('profileSel').value = doc.profileId;
+  ['issueDate','dueDate','subject','clientName','clientContact','notes'].forEach(k => $(k).value = doc[k] ?? '');
+  $('honorific').value = doc.honorific;
+  $('withholding').checked = !!doc.withholding;
+  $('showBank').checked = doc.showBank !== false;
+  $('dueLabel').textContent = doc.type === 'quote' ? '有効期限' : '支払期限';
+  $('bankWrap').style.display = doc.type === 'invoice' ? '' : 'none';
+  $('btnConvert').style.display = doc.type === 'quote' ? '' : 'none';
+  $('clientList').innerHTML = [...new Set(store.docs.map(d => d.clientName).filter(Boolean))].map(n => `<option value="${esc(n)}">`).join('');
+  $('presetSel').innerHTML = '<option value="">登録品目から追加…</option>' +
+    store.presets.map((p, i) => `<option value="${i}">${esc(p.name)}（${yen(p.price)}/${esc(p.unit)}）</option>`).join('');
+  renderItems();
+}
+function renderItems() {
+  $('items').innerHTML = doc.items.map((it, i) => `
+    <div class="item" data-i="${i}">
+      <div class="head">
+        <input data-k="name" value="${esc(it.name)}" placeholder="品目（例：動画編集 10分尺）">
+        <button class="small" data-act="preset" title="よく使う品目として登録">☆</button>
+        <button class="small" data-act="up" title="上へ">↑</button>
+        <button class="small danger" data-act="del" title="削除">×</button>
+      </div>
+      <div class="row">
+        <div><label>数量</label><input data-k="qty" type="number" step="any" value="${it.qty}"></div>
+        <div><label>単位</label><input data-k="unit" value="${esc(it.unit)}"></div>
+        <div style="flex:1.4"><label>単価（税抜）</label><input data-k="price" type="number" step="1" value="${it.price}"></div>
+        <div><label>税率</label><select data-k="rate">
+          ${[10,8,0].map(r => `<option value="${r}" ${+it.rate===r?'selected':''}>${r ? r+'%' : '対象外'}</option>`).join('')}
+        </select></div>
+      </div>
+    </div>`).join('');
+}
+
+// ---------- プレビュー（帳票）の描画 ----------
+function renderSheet() {
+  const p = profile(doc.profileId);
+  const c = calc(doc);
+  const isInv = doc.type === 'invoice';
+  const title = isInv ? '請求書' : '見積書';
+  const minRows = 8;
+  const rows = doc.items.map(it => {
+    const amt = Math.floor((+it.qty||0) * (+it.price||0));
+    const mark = +it.rate === 8 ? ' ※' : '';
+    return `<tr><td>${esc(it.name)}${mark}</td><td class="num">${esc(it.qty)}</td><td class="c">${esc(it.unit)}</td><td class="num">${num(+it.price||0)}</td><td class="c">${+it.rate ? it.rate+'%' : '対象外'}</td><td class="num">${num(amt)}</td></tr>`;
+  });
+  while (rows.length < minRows) rows.push('<tr><td></td><td></td><td></td><td></td><td></td><td></td></tr>');
+  const taxRows = c.taxes.map(t => t.rate > 0
+    ? `<tr><td>${t.rate}%対象（税抜）</td><td class="num">${yen(t.base)}</td></tr><tr><td>消費税（${t.rate}%）</td><td class="num">${yen(t.tax)}</td></tr>`
+    : `<tr><td>対象外</td><td class="num">${yen(t.base)}</td></tr>`).join('');
+  const whRows = c.wh ? `<tr><td>源泉徴収税額</td><td class="num">-${yen(c.wh)}</td></tr><tr class="big"><td>差引ご請求額</td><td class="num">${yen(c.pay)}</td></tr>` : '';
+  const headline = isInv && c.wh ? c.pay : c.total;
+  const addr = [p.zip ? '〒' + esc(p.zip) : '', esc(p.address)].filter(Boolean).join(' ');
+
+  $('sheet').innerHTML = `
+    <div class="meta gothic">発行日 ${jpDate(doc.issueDate)}</div>
+    <h1>${title}</h1>
+    <div class="top">
+      <div class="to">
+        <div class="name">${esc(doc.clientName) || '&nbsp;'}　${esc(doc.honorific)}</div>
+        ${doc.clientContact ? `<div class="contact">${esc(doc.clientContact)}</div>` : ''}
+        <div class="lead">${isInv ? '下記のとおりご請求申し上げます。' : '下記のとおりお見積り申し上げます。'}</div>
+        <div class="total-box"><div class="k">${isInv ? (c.wh ? '差引ご請求額' : 'ご請求金額') : 'お見積金額'}</div><div class="v">${yen(headline)}<span style="font-size:9pt;font-weight:400">（税込）</span></div></div>
+        <table class="kv">
+          ${doc.subject ? `<tr><td>件名</td><td>${esc(doc.subject)}</td></tr>` : ''}
+          ${doc.dueDate ? `<tr><td>${isInv ? 'お支払期限' : '有効期限'}</td><td>${jpDate(doc.dueDate)}</td></tr>` : ''}
+        </table>
+      </div>
+      <div class="from">
+        ${p.stamp ? `<img class="stamp" src="${p.stamp}" alt="">` : ''}
+        <div class="fname">${esc(p.name) || '（発行者の設定から入力してね）'}</div>
+        ${p.rep ? `<div>${esc(p.rep)}</div>` : ''}
+        ${addr ? `<div>${addr}</div>` : ''}
+        ${p.tel ? `<div>TEL ${esc(p.tel)}</div>` : ''}
+        ${p.email ? `<div>${esc(p.email)}</div>` : ''}
+        ${p.regNo ? `<div>登録番号 ${esc(p.regNo)}</div>` : ''}
+      </div>
+    </div>
+    <table class="items">
+      <thead><tr><th>品目</th><th style="width:13%">数量</th><th style="width:8%">単位</th><th style="width:15%">単価</th><th style="width:9%">税率</th><th style="width:17%">金額（税抜）</th></tr></thead>
+      <tbody>${rows.join('')}</tbody>
+    </table>
+    ${c.taxes.some(t => t.rate === 8) ? '<div class="foot-note">※は軽減税率（8%）対象</div>' : ''}
+    <div class="sum"><table>
+      <tr><td>小計（税抜）</td><td class="num">${yen(c.subtotal)}</td></tr>
+      ${taxRows}
+      <tr class="big"><td>合計（税込）</td><td class="num">${yen(c.total)}</td></tr>
+      ${whRows}
+    </table></div>
+    ${isInv && doc.showBank !== false && p.bank ? `<div class="box"><div class="t">お振込先</div>${esc(p.bank)}</div>` : ''}
+    ${doc.notes ? `<div class="box"><div class="t">備考</div>${esc(doc.notes)}</div>` : ''}
+  `;
+}
+
+function refresh() { renderSheet(); renderHistory(); }
+
+// ---------- 履歴 ----------
+function renderHistory() {
+  const q = $('histSearch').value.trim();
+  const list = store.docs.filter(d => !q || [d.clientName, d.subject].join(' ').includes(q))
+    .sort((a,b) => (b.issueDate||'').localeCompare(a.issueDate||''));
+  $('history').innerHTML = list.length ? list.map(d => {
+    const c = calc(d);
+    return `<div class="li" data-id="${d.id}">
+      <div class="grow"><span class="tag ${d.type==='invoice'?'inv':''}">${d.type==='invoice'?'請求':'見積'}</span>${esc(d.clientName||'（宛先なし）')}
+        <div class="sub">${jpDate(d.issueDate)}・${yen(d.withholding && d.type==='invoice' ? c.pay : c.total)}${d.subject ? '・'+esc(d.subject) : ''}</div></div>
+      <button class="small" data-act="open">開く</button>
+      <button class="small" data-act="dup" title="これをコピーして新しく作る">複製</button>
+      <button class="small danger" data-act="del">削除</button>
+    </div>`;
+  }).join('') : '<div class="empty">まだ保存した書類はないよ</div>';
+}
+
+function saveDoc(silent) {
+  if (!doc.id) doc.id = uid();
+  const i = store.docs.findIndex(d => d.id === doc.id);
+  const copy = JSON.parse(JSON.stringify(doc));
+  if (i >= 0) store.docs[i] = copy; else store.docs.push(copy);
+  store.lastProfileId = doc.profileId;
+  persist(); renderHistory(); renderForm();
+  if (!silent) toast('保存したよ');
+  return true;
+}
+
+// ---------- イベント ----------
+const bindField = (id, key, after) => $(id).addEventListener('input', e => { doc[key] = e.target.value; after && after(); renderSheet(); });
+['subject','clientName','clientContact','notes','dueDate'].forEach(k => bindField(k, k));
+$('issueDate').addEventListener('change', e => {
+  doc.issueDate = e.target.value;
+  if (!doc.id) { doc.dueDate = defaultDue(doc.type, doc.issueDate); $('dueDate').value = doc.dueDate; }
+  renderSheet();
+});
+$('honorific').addEventListener('change', e => { doc.honorific = e.target.value; renderSheet(); });
+$('withholding').addEventListener('change', e => { doc.withholding = e.target.checked; renderSheet(); });
+$('showBank').addEventListener('change', e => { doc.showBank = e.target.checked; renderSheet(); });
+$('profileSel').addEventListener('change', e => {
+  doc.profileId = e.target.value;
+  renderSheet();
+});
+$('typeSeg').addEventListener('click', e => {
+  const t = e.target.dataset.type; if (!t || t === doc.type) return;
+  doc.type = t;
+  if (!doc.id) doc.dueDate = defaultDue(t, doc.issueDate);
+  renderForm(); renderSheet();
+});
+
+$('items').addEventListener('input', e => {
+  const k = e.target.dataset.k; if (!k) return;
+  const i = +e.target.closest('.item').dataset.i;
+  doc.items[i][k] = (k === 'qty' || k === 'price' || k === 'rate') ? (e.target.value === '' ? '' : +e.target.value) : e.target.value;
+  renderSheet();
+});
+$('items').addEventListener('click', e => {
+  const act = e.target.dataset.act; if (!act) return;
+  const i = +e.target.closest('.item').dataset.i;
+  if (act === 'del') { doc.items.splice(i, 1); if (!doc.items.length) doc.items.push({name:'', qty:1, unit:'式', price:0, rate:10}); }
+  if (act === 'up' && i > 0) [doc.items[i-1], doc.items[i]] = [doc.items[i], doc.items[i-1]];
+  if (act === 'preset') {
+    const it = doc.items[i];
+    if (!it.name) return toast('品目名を入れてから登録してね');
+    const j = store.presets.findIndex(p => p.name === it.name);
+    const pr = {name: it.name, unit: it.unit, price: +it.price || 0, rate: +it.rate};
+    if (j >= 0) store.presets[j] = pr; else store.presets.push(pr);
+    persist(); renderForm(); return toast('「' + it.name + '」を登録品目にしたよ');
+  }
+  renderItems(); renderSheet();
+});
+$('btnAddItem').onclick = () => { doc.items.push({name:'', qty:1, unit:'式', price:0, rate:10}); renderItems(); renderSheet(); };
+$('presetSel').addEventListener('change', e => {
+  if (e.target.value === '') return;
+  const p = store.presets[+e.target.value];
+  const blank = doc.items.length === 1 && !doc.items[0].name && !+doc.items[0].price;
+  const it = {name:p.name, qty:1, unit:p.unit, price:p.price, rate:p.rate};
+  if (blank) doc.items[0] = it; else doc.items.push(it);
+  e.target.value = ''; renderItems(); renderSheet();
+});
+
+$('btnNew').onclick = () => { doc = newDoc(doc.type); renderForm(); renderSheet(); };
+$('btnSave').onclick = () => saveDoc();
+$('btnConvert').onclick = () => {
+  if (doc.type !== 'quote') return;
+  const src = JSON.parse(JSON.stringify(doc));
+  const inv = newDoc('invoice');
+  Object.assign(inv, {profileId: src.profileId, subject: src.subject, clientName: src.clientName, honorific: src.honorific,
+    clientContact: src.clientContact, items: src.items, withholding: src.withholding, notes: src.notes});
+  doc = inv; renderForm(); renderSheet();
+  toast('見積書の内容で請求書を作ったよ（発行日・期限は新しくしてある）');
+};
+// ファイル名：発行日_請求書or見積書_宛先（例：20260927_請求書_株式会社〇〇）
+function fileBase() {
+  const date = (doc.issueDate || ymd(new Date())).replace(/-/g, '');
+  const kind = doc.type === 'invoice' ? '請求書' : '見積書';
+  const to = (doc.clientName || '宛先未入力').replace(/[\\/:*?"<>|\s]+/g, '');
+  return `${date}_${kind}_${to}`;
+}
+$('btnPrint').onclick = () => {
+  const old = document.title;
+  document.title = fileBase();
+  saveDoc(true); // 印刷したものは自動で履歴に残す
+  window.print();
+  setTimeout(() => document.title = old, 500);
+};
+
+// PDFを直接ダウンロード（ブラウザの印刷画面を通さないので、ファイル名が確実に反映される）
+const loadScript = src => new Promise((ok, ng) => {
+  if (document.querySelector(`script[src="${src}"]`)) return ok();
+  const el = document.createElement('script'); el.src = src; el.onload = ok; el.onerror = ng; document.head.appendChild(el);
+});
+$('btnPdf').onclick = async () => {
+  const btn = $('btnPdf'); btn.disabled = true; btn.textContent = '作成中…';
+  try {
+    await loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
+    await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+    saveDoc(true);
+    const sheet = $('sheet');
+    const canvas = await html2canvas(sheet, {scale: 2.5, backgroundColor: '#ffffff', useCORS: true});
+    const pdf = new jspdf.jsPDF({unit: 'mm', format: 'a4'});
+    const pageH = 297, imgH = canvas.height * 210 / canvas.width;
+    // 1ページに収まらないときは297mmごとに切って複数ページにする
+    const sliceH = Math.floor(canvas.width * pageH / 210);
+    for (let y = 0, first = true; y < canvas.height; y += sliceH, first = false) {
+      const part = document.createElement('canvas');
+      part.width = canvas.width; part.height = Math.min(sliceH, canvas.height - y);
+      part.getContext('2d').drawImage(canvas, 0, -y);
+      if (!first) pdf.addPage();
+      pdf.addImage(part.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, 210, part.height * 210 / canvas.width);
+      if (imgH <= pageH + 1) break;
+    }
+    pdf.save(fileBase() + '.pdf');
+    toast('ダウンロードしたよ：' + fileBase() + '.pdf');
+  } catch (e) {
+    toast('PDFを作れなかった…ネットにつながってるか確認してね');
+  } finally { btn.disabled = false; btn.textContent = 'PDFダウンロード'; }
+};
+
+$('histSearch').addEventListener('input', renderHistory);
+$('history').addEventListener('click', e => {
+  const act = e.target.dataset.act; if (!act) return;
+  const id = e.target.closest('.li').dataset.id;
+  const d = store.docs.find(x => x.id === id); if (!d) return;
+  if (act === 'open') { doc = JSON.parse(JSON.stringify(d)); renderForm(); renderSheet(); window.scrollTo({top:0, behavior:'smooth'}); }
+  if (act === 'dup') {
+    const n = JSON.parse(JSON.stringify(d));
+    n.id = null; n.issueDate = ymd(new Date()); n.dueDate = defaultDue(n.type, n.issueDate);
+    doc = n; renderForm(); renderSheet(); toast('コピーしたよ。内容を直して保存してね');
+  }
+  if (act === 'del' && confirm(`${jpDate(d.issueDate)}の${d.type==='invoice'?'請求書':'見積書'}（${d.clientName||'宛先なし'}）を削除する？`)) {
+    store.docs = store.docs.filter(x => x.id !== id); persist(); renderHistory();
+    if (doc.id === id) doc.id = null;
+  }
+});
+
+// ---------- 発行者設定 ----------
+const PF = ['label','name','rep','zip','address','tel','email','regNo','bank'];
+let pfId;
+function fillProfileForm() {
+  $('pfSel').innerHTML = store.profiles.map(p => `<option value="${p.id}">${esc(p.label || p.name || '（名前未設定）')}</option>`).join('');
+  $('pfSel').value = pfId;
+  const p = profile(pfId);
+  PF.forEach(k => $('pf_' + k).value = p[k] || '');
+  $('pf_stampFile').value = '';
+}
+$('btnProfile').onclick = () => { pfId = doc.profileId; fillProfileForm(); $('dlgProfile').showModal(); };
+$('pfSel').addEventListener('change', e => { pfId = e.target.value; fillProfileForm(); });
+PF.forEach(k => $('pf_' + k).addEventListener('input', e => {
+  profile(pfId)[k] = e.target.value; persist(); renderSheet();
+  if (k === 'label') { const o = $('pfSel').selectedOptions[0]; if (o) o.textContent = e.target.value || '（名前未設定）'; }
+}));
+$('pfAdd').onclick = () => { const p = blankProfile('新しい発行者'); store.profiles.push(p); persist(); pfId = p.id; fillProfileForm(); };
+$('pfDel').onclick = () => {
+  if (store.profiles.length <= 1) return toast('発行者は最低1つ必要だよ');
+  if (!confirm('この発行者の設定を削除する？')) return;
+  store.profiles = store.profiles.filter(p => p.id !== pfId); persist();
+  pfId = store.profiles[0].id; if (!profile(doc.profileId, true)) doc.profileId = pfId; fillProfileForm();
+};
+$('pf_stampFile').addEventListener('change', e => {
+  const f = e.target.files[0]; if (!f) return;
+  const img = new Image(); const r = new FileReader();
+  r.onload = () => { img.onload = () => {
+    const s = Math.min(1, 300 / Math.max(img.width, img.height));
+    const cv = document.createElement('canvas'); cv.width = img.width * s; cv.height = img.height * s;
+    cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+    profile(pfId).stamp = cv.toDataURL('image/png'); persist(); renderSheet(); toast('印影を登録したよ');
+  }; img.src = r.result; };
+  r.readAsDataURL(f);
+});
+$('pf_stampClear').onclick = () => { profile(pfId).stamp = ''; persist(); renderSheet(); };
+$('pfClose').onclick = () => { $('dlgProfile').close(); renderForm(); renderSheet(); };
+
+// ---------- バックアップ ----------
+function download(name, text, type) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([text], {type}));
+  a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+$('btnBackup').onclick = () => $('dlgBackup').showModal();
+$('bkClose').onclick = () => $('dlgBackup').close();
+$('bkExport').onclick = () => download(`見積請求_バックアップ_${ymd(new Date())}.json`, JSON.stringify(store, null, 2), 'application/json');
+$('bkImportBtn').onclick = () => $('bkImport').click();
+$('bkImport').addEventListener('change', e => {
+  const f = e.target.files[0]; if (!f) return;
+  f.text().then(t => {
+    const data = JSON.parse(t);
+    if (!Array.isArray(data.profiles) || !Array.isArray(data.docs)) throw 0;
+    if (!confirm('今のデータをバックアップの内容で置き換える？')) return;
+    store = data; persist(); load(); doc = newDoc(); renderForm(); refresh(); toast('読み込んだよ');
+  }).catch(() => toast('このファイルは読み込めなかった…'));
+  e.target.value = '';
+});
+$('bkCsv').onclick = () => {
+  const head = ['種類','発行日','期限','宛先','件名','発行者','小計(税抜)','消費税','合計(税込)','源泉徴収','差引額'];
+  const q = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const lines = [...store.docs].sort((a,b) => (a.issueDate||'').localeCompare(b.issueDate||'')).map(d => {
+    const c = calc(d);
+    return [d.type==='invoice'?'請求書':'見積書', d.issueDate, d.dueDate, d.clientName, d.subject,
+      profile(d.profileId).label, c.subtotal, c.tax, c.total, c.wh, c.pay].map(q).join(',');
+  });
+  download(`見積請求_一覧_${ymd(new Date())}.csv`, '﻿' + [head.map(q).join(','), ...lines].join('\r\n'), 'text/csv');
+};
+
+let tt;
+function toast(msg) { const t = $('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(tt); tt = setTimeout(() => t.classList.remove('show'), 2400); }
+
+// ---------- 起動 ----------
+doc = newDoc('invoice');
+renderForm(); refresh();
+if (!profile(doc.profileId).name) setTimeout(() => toast('はじめに「発行者の設定」で名前や振込先を入れてね'), 400);
+})();
+</script>
+</body>
+</html>
