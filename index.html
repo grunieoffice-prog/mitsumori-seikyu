@@ -216,7 +216,7 @@ dialog .foot{display:flex;gap:8px;justify-content:flex-end;padding:12px 18px;bor
     </div>
     <input type="file" id="bkImport" accept=".json,application/json" hidden>
     <div class="row" style="margin-top:10px">
-      <button id="bkCsv">保存した書類の一覧をCSVで書き出す</button>
+      <button id="bkCsv">「よく使う」の一覧をCSVで書き出す</button>
     </div>
     <p class="hint">CSVは売上の記帳（弥生への入力など）の確認用。</p>
   </div>
@@ -574,7 +574,6 @@ function fileBase() {
 $('btnPrint').onclick = () => {
   const old = document.title;
   document.title = fileBase();
-  saveDoc(true); // 印刷したものは自動で履歴に残す
   window.print();
   setTimeout(() => document.title = old, 500);
 };
@@ -589,7 +588,6 @@ $('btnPdf').onclick = async () => {
   try {
     await loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
     await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
-    saveDoc(true);
     const sheet = $('sheet');
     const canvas = await html2canvas(sheet, {scale: 2.5, backgroundColor: '#ffffff', useCORS: true});
     const pdf = new jspdf.jsPDF({unit: 'mm', format: 'a4'});
