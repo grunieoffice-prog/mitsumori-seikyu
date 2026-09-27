@@ -147,7 +147,7 @@ dialog .foot{display:flex;gap:8px;justify-content:flex-end;padding:12px 18px;bor
       </div>
       <div id="items"></div>
       <div class="hint">消費税は税率ごとにまとめて計算して、1円未満は切り捨て（インボイスの計算ルール）。内税のときは「内消費税」として表示するよ。</div>
-      <div class="hint">品目の「8月分」などの月は、発行日を変えたり複製したりすると一緒にずれるよ。</div>
+      <div class="hint">件名や品目の「8月分」などの月は、発行日を変えたり複製したりすると一緒にずれるよ。</div>
       <label class="check"><input type="checkbox" id="withholding"> 源泉徴収する（個人→法人への デザイン料・原稿料 など）</label>
       <div class="hint">税抜金額に10.21%（100万円超の部分は20.42%）で計算して、差引額を表示するよ。</div>
     </div>
@@ -485,12 +485,13 @@ function shiftItemMonths(d, fromDate, toDate) {
   const a = monthIndex(fromDate), b = monthIndex(toDate);
   if (a === null || b === null || a === b) return;
   d.items.forEach(it => it.name = shiftMonths(it.name, b - a));
+  d.subject = shiftMonths(d.subject, b - a);
 }
 let monthBase = null; // 最後に有効だった発行日（入力途中の日付でずれないように）
 $('issueDate').addEventListener('change', e => {
   doc.issueDate = e.target.value;
   if (monthIndex(doc.issueDate) !== null) {
-    if (monthBase) { shiftItemMonths(doc, monthBase, doc.issueDate); renderItems(); }
+    if (monthBase) { shiftItemMonths(doc, monthBase, doc.issueDate); renderItems(); $('subject').value = doc.subject; }
     monthBase = doc.issueDate;
   }
   if (!doc.id) { doc.dueDate = defaultDue(doc.type, doc.issueDate); $('dueDate').value = doc.dueDate; }
