@@ -106,6 +106,17 @@ dialog .foot{display:flex;gap:8px;justify-content:flex-end;padding:12px 18px;bor
 <div class="layout">
   <div class="editor">
     <div class="panel">
+      <h2>よく使う</h2>
+      <select id="history"></select>
+      <div class="row" style="margin-top:8px">
+        <button class="primary" id="histDup" title="これをコピーして新しく作る">複製して使う</button>
+        <button id="histOpen" title="保存した書類をそのまま開いて直す">開く</button>
+        <button class="danger" id="histDel" style="flex:0 0 auto">削除</button>
+      </div>
+      <div class="hint">データはこのブラウザの中だけに保存されるよ。月1くらいで「バックアップ」からファイルに書き出しておくと安心。</div>
+    </div>
+
+    <div class="panel">
       <div class="seg" id="typeSeg">
         <button data-type="quote">見積書</button>
         <button data-type="invoice">請求書</button>
@@ -158,17 +169,6 @@ dialog .foot{display:flex;gap:8px;justify-content:flex-end;padding:12px 18px;bor
         <button class="small" id="fileNameReset" title="自動の名前に戻す" style="flex:0 0 auto">↺ 自動に戻す</button>
       </div>
       <div class="hint" id="fileNameHint"></div>
-    </div>
-
-    <div class="panel">
-      <h2>よく使う</h2>
-      <select id="history"></select>
-      <div class="row" style="margin-top:8px">
-        <button class="primary" id="histDup" title="これをコピーして新しく作る">複製して使う</button>
-        <button id="histOpen" title="保存した書類をそのまま開いて直す">開く</button>
-        <button class="danger" id="histDel" style="flex:0 0 auto">削除</button>
-      </div>
-      <div class="hint">データはこのブラウザの中だけに保存されるよ。月1くらいで「バックアップ」からファイルに書き出しておくと安心。</div>
     </div>
   </div>
 
