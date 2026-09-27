@@ -244,7 +244,10 @@ dialog .foot{display:flex;gap:8px;justify-content:flex-end;padding:12px 18px;bor
 
 <script>
 (() => {
+// 保存場所の名前。特別版（別URL）を作るときは KEY を別の名前にして、SEED_FROM に本体の KEY を入れる
+// → 特別版を初めて開いたとき、本体の「発行者の設定」と「登録品目」だけ引き継ぐ（本体のデータは変更しない）
 const KEY = 'mitsumoriSeikyu.v1';
+const SEED_FROM = '';
 const $ = id => document.getElementById(id);
 const yen = n => '¥' + Math.round(n).toLocaleString('ja-JP');
 const num = n => Math.round(n).toLocaleString('ja-JP');
@@ -261,6 +264,9 @@ function blankProfile(label='個人事業') {
 let store;
 function load() {
   try { store = JSON.parse(localStorage.getItem(KEY)); } catch { store = null; }
+  if (!store && SEED_FROM) {
+    try { const src = JSON.parse(localStorage.getItem(SEED_FROM)); if (src) store = {profiles: src.profiles || [], presets: src.presets || [], docs: [], lastProfileId: src.lastProfileId || null}; } catch {}
+  }
   if (!store || !Array.isArray(store.profiles)) store = {profiles:[blankProfile()], presets:[], docs:[], lastProfileId:null};
   if (!store.profiles.length) store.profiles.push(blankProfile());
   store.presets ||= []; store.docs ||= [];
