@@ -79,10 +79,6 @@ dialog .foot{display:flex;gap:8px;justify-content:flex-end;padding:12px 18px;bor
 .sheet .sum tr.big td{font-weight:700;font-size:10.5pt}
 .sheet .box{border:1px solid #555;padding:2.5mm 3mm;margin-top:5mm;font-size:9.5pt;white-space:pre-wrap}
 .sheet .box .t{font-weight:600;margin-bottom:1mm}
-.sheet h1.stmt{letter-spacing:.15em;padding-left:.15em;font-size:19pt}
-.sheet .band{background:#d9d9d9;text-align:center;font-weight:600;padding:1.5mm;margin-top:6mm;border:1px solid #555;border-bottom:0}
-.sheet table.items.stmt{margin-top:0}
-.sheet table.items tr.total td{font-weight:700;background:#f7f7f7}
 .sheet .foot-note{font-size:8.5pt;color:#444;margin-top:2mm}
 
 @media print{
@@ -127,13 +123,12 @@ dialog .foot{display:flex;gap:8px;justify-content:flex-end;padding:12px 18px;bor
         <button data-type="quote">見積書</button>
         <button data-type="delivery">納品書</button>
         <button data-type="invoice">請求書</button>
-        <button data-type="statement">明細書</button>
       </div>
       <label>発行者</label>
       <select id="profileSel"></select>
       <div class="row">
         <div><label>発行日</label><input id="issueDate" type="date"></div>
-        <div id="dueWrap"><label id="dueLabel">支払期限</label><input id="dueDate" type="date"></div>
+        <div><label id="dueLabel">支払期限</label><input id="dueDate" type="date"></div>
       </div>
       <label>件名</label><input id="subject" placeholder="例：〇〇動画 編集業務">
     </div>
@@ -153,21 +148,15 @@ dialog .foot{display:flex;gap:8px;justify-content:flex-end;padding:12px 18px;bor
         <select id="presetSel" style="width:auto;font-size:12px"><option value="">登録品目から追加…</option></select>
         <button class="small" id="btnAddItem">＋ 行を追加</button>
       </h2>
-      <div id="stmtOpts" style="margin-bottom:10px">
-        <label>金額の列の名前</label><input id="stmtAmountLabel" placeholder="金額（例：サポート料金）">
-        <div class="hint">明細書は、日付・お客様名・金額・内容の表で作るよ。金額は税込で入力してね。</div>
-      </div>
       <div class="seg" id="modeSeg" style="margin-bottom:10px">
         <button data-mode="excl">単価は税抜（外税）</button>
         <button data-mode="incl">単価は税込（内税）</button>
       </div>
       <div id="items"></div>
-      <div class="hint" id="taxHint">消費税は税率ごとにまとめて計算して、1円未満は切り捨て（インボイスの計算ルール）。内税のときは「内消費税」として表示するよ。</div>
+      <div class="hint">消費税は税率ごとにまとめて計算して、1円未満は切り捨て（インボイスの計算ルール）。内税のときは「内消費税」として表示するよ。</div>
       <div class="hint">件名や品目の「8月分」などの月は、発行日を変えたり複製したりすると一緒にずれるよ。</div>
-      <div id="whWrap">
-        <label class="check"><input type="checkbox" id="withholding"> 源泉徴収する（個人→法人への デザイン料・原稿料 など）</label>
-        <div class="hint">税抜金額に10.21%（100万円超の部分は20.42%）で計算して、差引額を表示するよ。</div>
-      </div>
+      <label class="check"><input type="checkbox" id="withholding"> 源泉徴収する（個人→法人への デザイン料・原稿料 など）</label>
+      <div class="hint">税抜金額に10.21%（100万円超の部分は20.42%）で計算して、差引額を表示するよ。</div>
     </div>
 
     <div class="panel">
@@ -295,7 +284,6 @@ const TYPES = {
   quote:    {name:'見積書', short:'見積', lead:'下記のとおりお見積り申し上げます。', total:'お見積金額', date:'有効期限'},
   delivery: {name:'納品書', short:'納品', lead:'下記のとおり納品いたしました。',   total:'合計金額',   date:'納品日'},
   invoice:  {name:'請求書', short:'請求', lead:'下記のとおりご請求申し上げます。', total:'ご請求金額', date:'お支払期限'},
-  statement:{name:'明細書', short:'明細', lead:'',                               total:'売上額計',   date:''},
 };
 const T = d => TYPES[d.type] || TYPES.invoice;
 
@@ -377,7 +365,7 @@ function calc(d) {
     const r = String(it.rate);
     byRate[r] = (byRate[r] || 0) + amt;
   });
-  const incl = d.priceMode === 'incl' || d.type === 'statement'; // 明細書の金額は税込
+  const incl = d.priceMode === 'incl';
   const taxes = Object.entries(byRate).map(([r, sum]) => {
     const rate = +r;
     // 外税：税抜合計×税率　内税：税込合計×税率/(100+税率)　どちらも税率ごとに1回だけ切り捨て
@@ -406,13 +394,8 @@ function renderForm() {
   $('showBank').checked = doc.showBank !== false;
   $('dueLabel').textContent = T(doc).date.replace('お', '');
   $('bankWrap').style.display = doc.type === 'invoice' ? '' : 'none';
-  const isStmt = doc.type === 'statement';
   $('btnToDelivery').style.display = doc.type === 'quote' ? '' : 'none';
-  $('btnToInvoice').style.display = doc.type === 'invoice' || isStmt ? 'none' : '';
-  $('dueWrap').style.visibility = isStmt ? 'hidden' : '';
-  ['modeSeg','taxHint','whWrap'].forEach(id => $(id).style.display = isStmt ? 'none' : '');
-  $('stmtOpts').style.display = isStmt ? '' : 'none';
-  $('stmtAmountLabel').value = doc.stmtAmountLabel || '';
+  $('btnToInvoice').style.display = doc.type === 'invoice' ? 'none' : '';
   $('clientList').innerHTML = [...new Set(store.docs.map(d => d.clientName).filter(Boolean))].map(n => `<option value="${esc(n)}">`).join('');
   document.querySelectorAll('#modeSeg button').forEach(b => b.classList.toggle('on', b.dataset.mode === (doc.priceMode || 'excl')));
   $('presetSel').innerHTML = '<option value="">登録品目から追加…</option>' +
@@ -420,23 +403,6 @@ function renderForm() {
   renderItems();
 }
 function renderItems() {
-  if (doc.type === 'statement') {
-    $('items').innerHTML = doc.items.map((it, i) => `
-    <div class="item" data-i="${i}">
-      <div class="head">
-        <input data-k="name" value="${esc(it.name)}" placeholder="内容（例：買い物代行、付き添い）">
-        <button class="small" data-act="preset" title="よく使う品目として登録">☆</button>
-        <button class="small" data-act="up" title="上へ">↑</button>
-        <button class="small danger" data-act="del" title="削除">×</button>
-      </div>
-      <div class="row">
-        <div style="flex:1.2"><label>日付</label><input data-k="date" type="date" value="${esc(it.date || '')}"></div>
-        <div><label>お客様名</label><input data-k="customer" value="${esc(it.customer || '')}" placeholder="〇〇様"></div>
-        <div><label>金額（税込）</label><input data-k="price" type="number" step="1" value="${it.price}"></div>
-      </div>
-    </div>`).join('');
-    return;
-  }
   $('items').innerHTML = doc.items.map((it, i) => `
     <div class="item" data-i="${i}">
       <div class="head">
@@ -481,42 +447,6 @@ function renderSheet() {
   const whRows = c.wh && !isDel ? `<tr><td>源泉徴収税額</td><td class="num">-${yen(c.wh)}</td></tr><tr class="big"><td>差引ご請求額</td><td class="num">${yen(c.pay)}</td></tr>` : '';
   const headline = isInv && c.wh ? c.pay : c.total;
   const addr = [p.zip ? '〒' + esc(p.zip) : '', esc(p.address)].filter(Boolean).join('<br>'); // 郵便番号の後で改行
-  const fromHtml = `
-      <div class="from">
-        ${p.stamp ? `<img class="stamp" src="${p.stamp}" alt="">` : ''}
-        <div class="fname">${esc(p.name) || '（発行者の設定から入力してね）'}</div>
-        ${p.rep ? `<div>${esc(p.rep)}</div>` : ''}
-        ${addr ? `<div>${addr}</div>` : ''}
-        ${p.tel ? `<div>TEL：${esc(p.tel)}</div>` : ''}
-        ${p.email ? `<div>Mail：${esc(p.email)}</div>` : ''}
-        ${p.regNo && !p.exempt ? `<div>登録番号 ${esc(p.regNo)}</div>` : ''}
-      </div>`;
-
-  // 明細書：日付・お客様名・金額・内容の表（金額は税込）
-  if (doc.type === 'statement') {
-    const md = s => { if (!s) return ''; const [, m, d] = s.split('-').map(Number); return `${m}/${d}`; };
-    const srows = doc.items.map(it => !it.name && !it.date && !it.customer && !+it.price ? '<tr><td></td><td></td><td></td><td></td></tr>' : `<tr><td class="c">${md(it.date)}</td><td class="c">${esc(it.customer || '')}</td><td class="num">${it.price === '' ? '' : num(Math.floor((+it.qty || 1) * (+it.price || 0)))}</td><td>${esc(it.name)}</td></tr>`);
-    while (srows.length < 15) srows.push('<tr><td></td><td></td><td></td><td></td></tr>');
-    $('sheet').innerHTML = `
-    <div class="meta gothic">作成日 ${jpDate(doc.issueDate)}</div>
-    <h1 class="stmt">${doc.subject ? esc(doc.subject) + '　' : ''}売上明細書</h1>
-    <div class="top">
-      <div class="to">
-        <div class="name">${esc(doc.clientName) || '&nbsp;'}　${esc(doc.honorific)}</div>
-        ${doc.clientContact ? `<div class="contact">${esc(doc.clientContact)}</div>` : ''}
-        <div class="total-box" style="margin-top:5mm"><div class="k">${T(doc).total}</div><div class="v">${yen(c.total)}</div></div>
-      </div>${fromHtml}
-    </div>
-    <div class="band">明細</div>
-    <table class="items stmt">
-      <thead><tr><th style="width:15%">日付</th><th style="width:22%">お客様名</th><th style="width:20%">${esc(doc.stmtAmountLabel || '金額')}</th><th>内容</th></tr></thead>
-      <tbody>${srows.join('')}<tr class="total"><td class="c">計</td><td></td><td class="num">${num(c.total)}</td><td></td></tr></tbody>
-    </table>
-    <div class="foot-note">※全ての金額は税込金額です</div>
-    ${doc.notes ? `<div class="box"><div class="t">備考</div>${esc(doc.notes)}</div>` : ''}
-  `;
-    return;
-  }
 
   $('sheet').innerHTML = `
     <div class="meta gothic">発行日 ${jpDate(doc.issueDate)}</div>
@@ -531,7 +461,16 @@ function renderSheet() {
           ${doc.subject ? `<tr><td>件名</td><td>${esc(doc.subject)}</td></tr>` : ''}
           ${doc.dueDate ? `<tr><td>${T(doc).date}</td><td>${jpDate(doc.dueDate)}</td></tr>` : ''}
         </table>
-      </div>${fromHtml}
+      </div>
+      <div class="from">
+        ${p.stamp ? `<img class="stamp" src="${p.stamp}" alt="">` : ''}
+        <div class="fname">${esc(p.name) || '（発行者の設定から入力してね）'}</div>
+        ${p.rep ? `<div>${esc(p.rep)}</div>` : ''}
+        ${addr ? `<div>${addr}</div>` : ''}
+        ${p.tel ? `<div>TEL：${esc(p.tel)}</div>` : ''}
+        ${p.email ? `<div>Mail：${esc(p.email)}</div>` : ''}
+        ${p.regNo && !p.exempt ? `<div>登録番号 ${esc(p.regNo)}</div>` : ''}
+      </div>
     </div>
     <table class="items">
       <thead><tr><th>品目</th><th style="width:13%">数量</th><th style="width:8%">単位</th><th style="width:15%">単価${incl ? '（税込）' : ''}</th><th style="width:9%">税率</th><th style="width:17%">金額（${incl ? '税込' : '税抜'}）</th></tr></thead>
@@ -601,7 +540,6 @@ $('issueDate').addEventListener('change', e => {
   if (!doc.id) { doc.dueDate = defaultDue(doc.type, doc.issueDate); $('dueDate').value = doc.dueDate; }
   renderSheet();
 });
-$('stmtAmountLabel').addEventListener('input', e => { doc.stmtAmountLabel = e.target.value; renderSheet(); });
 $('fileName').addEventListener('input', e => {
   const v = e.target.value.trim();
   const tpl = v ? toTpl(v) : '';
