@@ -124,6 +124,12 @@ dialog .foot{display:flex;gap:8px;justify-content:flex-end;padding:12px 18px;bor
         <div><label id="dueLabel">支払期限</label><input id="dueDate" type="date"></div>
       </div>
       <label>件名</label><input id="subject" placeholder="例：〇〇動画 編集業務">
+      <label>PDFのファイル名</label>
+      <div class="row">
+        <input id="fileName" style="flex:1">
+        <button class="small" id="fileNameReset" title="自動の名前に戻す" style="flex:0 0 auto">↺ 自動に戻す</button>
+      </div>
+      <div class="hint" id="fileNameHint"></div>
     </div>
 
     <div class="panel">
@@ -267,6 +273,21 @@ function newDoc(type = 'invoice') {
 }
 function profile(id, strict) { return store.profiles.find(p => p.id === id) || (strict ? null : store.profiles[0]); }
 
+// ---------- ファイル名 ----------
+// 自動の名前：発行日_請求書or見積書_宛先＋敬称（例：26.09.27_請求書_株式会社〇〇御中）
+function defaultFileName() {
+  const date = (doc.issueDate || ymd(new Date())).slice(2).replace(/-/g, '.');
+  const kind = doc.type === 'invoice' ? '請求書' : '見積書';
+  const to = doc.clientName ? doc.clientName + (doc.honorific || '') : '宛先未入力';
+  return `${date}_${kind}_${to.replace(/[\\/:*?"<>|\s]+/g, '')}`;
+}
+function renderFileName() {
+  const el = $('fileName');
+  if (document.activeElement !== el) el.value = doc.fileName || defaultFileName();
+  $('fileNameReset').style.display = doc.fileName ? '' : 'none';
+  $('fileNameHint').textContent = doc.fileName ? '手で変えた名前を使うよ（宛先などを変えても自動では変わらない）' : '宛先や日付を変えると自動で変わるよ。直接書き換えてもOK';
+}
+
 // ---------- 計算 ----------
 function calc(d) {
   const byRate = {};
@@ -334,6 +355,7 @@ function renderItems() {
 
 // ---------- プレビュー（帳票）の描画 ----------
 function renderSheet() {
+  renderFileName();
   const p = profile(doc.profileId);
   const c = calc(doc);
   const isInv = doc.type === 'invoice';
@@ -434,6 +456,13 @@ $('issueDate').addEventListener('change', e => {
   if (!doc.id) { doc.dueDate = defaultDue(doc.type, doc.issueDate); $('dueDate').value = doc.dueDate; }
   renderSheet();
 });
+$('fileName').addEventListener('input', e => {
+  const v = e.target.value.trim();
+  doc.fileName = v && v !== defaultFileName() ? v : '';
+  renderFileName();
+});
+$('fileName').addEventListener('blur', renderFileName);
+$('fileNameReset').onclick = () => { doc.fileName = ''; renderFileName(); };
 $('honorific').addEventListener('change', e => { doc.honorific = e.target.value; renderSheet(); });
 $('withholding').addEventListener('change', e => { doc.withholding = e.target.checked; renderSheet(); });
 $('showBank').addEventListener('change', e => { doc.showBank = e.target.checked; renderSheet(); });
@@ -498,12 +527,10 @@ $('btnConvert').onclick = () => {
   doc = inv; renderForm(); renderSheet();
   toast('見積書の内容で請求書を作ったよ（発行日・期限は新しくしてある）');
 };
-// ファイル名：発行日_請求書or見積書_宛先＋敬称（例：26.09.27_請求書_株式会社〇〇御中）
+// ファイル名：手で変えていればそれを使う。なければ自動の名前
 function fileBase() {
-  const date = (doc.issueDate || ymd(new Date())).slice(2).replace(/-/g, '.');
-  const kind = doc.type === 'invoice' ? '請求書' : '見積書';
-  const to = doc.clientName ? doc.clientName + (doc.honorific || '') : '宛先未入力';
-  return `${date}_${kind}_${to.replace(/[\\/:*?"<>|\s]+/g, '')}`;
+  const name = (doc.fileName || defaultFileName()).replace(/\.pdf$/i, '').replace(/[\\/:*?"<>|]+/g, '').trim();
+  return name || defaultFileName();
 }
 $('btnPrint').onclick = () => {
   const old = document.title;
@@ -553,7 +580,7 @@ $('history').addEventListener('click', e => {
   if (act === 'open') { doc = JSON.parse(JSON.stringify(d)); renderForm(); renderSheet(); window.scrollTo({top:0, behavior:'smooth'}); }
   if (act === 'dup') {
     const n = JSON.parse(JSON.stringify(d));
-    n.id = null; n.issueDate = ymd(new Date()); n.dueDate = defaultDue(n.type, n.issueDate);
+    n.id = null; n.fileName = ""; n.issueDate = ymd(new Date()); n.dueDate = defaultDue(n.type, n.issueDate);
     doc = n; renderForm(); renderSheet(); toast('コピーしたよ。内容を直して保存してね');
   }
   if (act === 'del' && confirm(`${jpDate(d.issueDate)}の${d.type==='invoice'?'請求書':'見積書'}（${d.clientName||'宛先なし'}）を削除する？`)) {
