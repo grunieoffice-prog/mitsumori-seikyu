@@ -274,18 +274,24 @@ function newDoc(type = 'invoice') {
 function profile(id, strict) { return store.profiles.find(p => p.id === id) || (strict ? null : store.profiles[0]); }
 
 // ---------- ファイル名 ----------
-// 自動の名前：発行日_請求書or見積書_宛先＋敬称（例：26.09.27_請求書_株式会社〇〇御中）
-function defaultFileName() {
-  const date = (doc.issueDate || ymd(new Date())).slice(2).replace(/-/g, '.');
-  const kind = doc.type === 'invoice' ? '請求書' : '見積書';
-  const to = doc.clientName ? doc.clientName + (doc.honorific || '') : '宛先未入力';
-  return `${date}_${kind}_${to.replace(/[\\/:*?"<>|\s]+/g, '')}`;
+// doc.fileName には「ひな形」を保存する。日付・種類・宛先の部分は {日付}{種類}{宛先} の目印にしておき、
+// 表示するときに今の内容で置き換える → 手で書き換えても、その3つは内容に合わせて自動で変わる
+const DEFAULT_TPL = '{日付}_{種類}_{宛先}';
+function fileParts() {
+  return {
+    '{宛先}': (doc.clientName ? doc.clientName + (doc.honorific || '') : '宛先未入力').replace(/[\\/:*?"<>|\s]+/g, ''),
+    '{日付}': (doc.issueDate || ymd(new Date())).slice(2).replace(/-/g, '.'),
+    '{種類}': doc.type === 'invoice' ? '請求書' : '見積書',
+  };
 }
+function fillTpl(tpl) { let out = tpl; Object.entries(fileParts()).forEach(([k, v]) => out = out.split(k).join(v)); return out; }
+function toTpl(text) { let out = text; Object.entries(fileParts()).forEach(([k, v]) => { if (v) out = out.split(v).join(k); }); return out; }
+function defaultFileName() { return fillTpl(DEFAULT_TPL); }
 function renderFileName() {
   const el = $('fileName');
-  if (document.activeElement !== el) el.value = doc.fileName || defaultFileName();
+  if (document.activeElement !== el) el.value = fillTpl(doc.fileName || DEFAULT_TPL);
   $('fileNameReset').style.display = doc.fileName ? '' : 'none';
-  $('fileNameHint').textContent = doc.fileName ? '手で変えた名前を使うよ（宛先などを変えても自動では変わらない）' : '宛先や日付を変えると自動で変わるよ。直接書き換えてもOK';
+  $('fileNameHint').textContent = '日付・請求書/見積書・宛先の部分は、内容に合わせて自動で変わるよ。それ以外は自由に書き換えてOK';
 }
 
 // ---------- 計算 ----------
@@ -458,7 +464,8 @@ $('issueDate').addEventListener('change', e => {
 });
 $('fileName').addEventListener('input', e => {
   const v = e.target.value.trim();
-  doc.fileName = v && v !== defaultFileName() ? v : '';
+  const tpl = v ? toTpl(v) : '';
+  doc.fileName = tpl && tpl !== DEFAULT_TPL ? tpl : '';
   renderFileName();
 });
 $('fileName').addEventListener('blur', renderFileName);
@@ -529,7 +536,7 @@ $('btnConvert').onclick = () => {
 };
 // ファイル名：手で変えていればそれを使う。なければ自動の名前
 function fileBase() {
-  const name = (doc.fileName || defaultFileName()).replace(/\.pdf$/i, '').replace(/[\\/:*?"<>|]+/g, '').trim();
+  const name = fillTpl(doc.fileName || DEFAULT_TPL).replace(/\.pdf$/i, '').replace(/[\\/:*?"<>|]+/g, '').trim();
   return name || defaultFileName();
 }
 $('btnPrint').onclick = () => {
