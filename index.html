@@ -305,14 +305,24 @@ function fileParts() {
 // 「8月分」などの月は、発行日の月から何か月ずれているかで覚える（{月+0}＝発行月、{月-1}＝前月）
 // → 発行日が変わると月も一緒にずれる
 const issueMonth = () => +(doc.issueDate || ymd(new Date())).slice(5, 7);
+const issueYM = () => { const d = doc.issueDate || ymd(new Date()); return +d.slice(0, 4) * 12 + +d.slice(5, 7) - 1; };
 function fillTpl(tpl) {
   let out = tpl;
   Object.entries(fileParts()).forEach(([k, v]) => out = out.split(k).join(v));
+  out = out.replace(/\{年月([+-]\d+)\}/g, (_, off) => {
+    const i = issueYM() + +off, y = Math.floor(i / 12), m = i % 12 + 1;
+    return `${String(y % 100).padStart(2, '0')}.${String(m).padStart(2, '0')}`;
+  });
   return out.replace(/\{月([+-]\d+)\}/g, (_, off) => (((issueMonth() - 1 + +off) % 12 + 12) % 12 + 1) + '月');
 }
 function toTpl(text) {
   let out = text;
   Object.entries(fileParts()).forEach(([k, v]) => { if (v) out = out.split(v).join(k); });
+  // 「26.09」のような 年.月 は 2026年9月 とみなして、発行月からのずれで覚える（26.09.27 のような日付は対象外）
+  out = out.replace(/(?<![\d.])(\d{2})\.(0[1-9]|1[0-2])(?![\d]|\.\d)/g, (_, y, m) => {
+    const off = (2000 + +y) * 12 + (+m - 1) - issueYM();
+    return `{年月${off >= 0 ? '+' : ''}${off}}`;
+  });
   return out.replace(/(?<![\d{])(1[0-2]|0?[1-9])月/g, (_, m) => {
     let off = +m - issueMonth();
     if (off > 6) off -= 12; if (off < -6) off += 12; // 12月↔1月のまたぎ
@@ -324,7 +334,7 @@ function renderFileName() {
   const el = $('fileName');
   if (document.activeElement !== el) el.value = fillTpl(doc.fileName || DEFAULT_TPL);
   $('fileNameReset').style.display = doc.fileName ? '' : 'none';
-  $('fileNameHint').textContent = '日付・請求書/見積書・宛先・「〇月」の部分は、内容に合わせて自動で変わるよ。それ以外は自由に書き換えてOK';
+  $('fileNameHint').textContent = '日付・請求書/見積書・宛先・「〇月」「26.09」の部分は、内容に合わせて自動で変わるよ。それ以外は自由に書き換えてOK';
 }
 
 // ---------- 計算 ----------
