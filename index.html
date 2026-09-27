@@ -54,7 +54,7 @@ dialog .foot{display:flex;gap:8px;justify-content:flex-end;padding:12px 18px;bor
 .sheet h1{text-align:center;font-size:22pt;letter-spacing:.6em;margin:0 0 6mm;padding-left:.6em;font-weight:600}
 .sheet .meta{text-align:right;font-size:9.5pt}
 .sheet .top{display:flex;justify-content:space-between;gap:8mm;margin-top:4mm}
-.sheet .to{flex:1}
+.sheet .to{flex:1;min-width:0}
 .sheet .to .name{font-size:15pt;border-bottom:1px solid #111;padding-bottom:1mm;margin-bottom:1mm}
 .sheet .to .contact{font-size:10pt}
 .sheet .lead{margin:5mm 0 3mm}
@@ -64,7 +64,7 @@ dialog .foot{display:flex;gap:8px;justify-content:flex-end;padding:12px 18px;bor
 .sheet .kv{margin-top:3mm;font-size:10pt}
 .sheet .kv td{padding:.6mm 3mm .6mm 0;vertical-align:top}
 .sheet .kv td:first-child{color:#444;white-space:nowrap}
-.sheet .from{width:82mm;position:relative;font-size:9.5pt;padding-top:2mm}
+.sheet .from{flex:0 0 auto;width:max-content;min-width:55mm;max-width:88mm;position:relative;font-size:9.5pt;padding-top:2mm}
 .sheet .from .fname{font-size:11.5pt;font-weight:600}
 .sheet .from .stamp{position:absolute;right:0;top:0;width:20mm;height:20mm;object-fit:contain;opacity:.9}
 .sheet table.items{width:100%;border-collapse:collapse;margin-top:6mm;font-size:9.5pt}
