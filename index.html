@@ -287,14 +287,29 @@ function fileParts() {
     '{種類}': doc.type === 'invoice' ? '請求書' : '見積書',
   };
 }
-function fillTpl(tpl) { let out = tpl; Object.entries(fileParts()).forEach(([k, v]) => out = out.split(k).join(v)); return out; }
-function toTpl(text) { let out = text; Object.entries(fileParts()).forEach(([k, v]) => { if (v) out = out.split(v).join(k); }); return out; }
+// 「8月分」などの月は、発行日の月から何か月ずれているかで覚える（{月+0}＝発行月、{月-1}＝前月）
+// → 発行日が変わると月も一緒にずれる
+const issueMonth = () => +(doc.issueDate || ymd(new Date())).slice(5, 7);
+function fillTpl(tpl) {
+  let out = tpl;
+  Object.entries(fileParts()).forEach(([k, v]) => out = out.split(k).join(v));
+  return out.replace(/\{月([+-]\d+)\}/g, (_, off) => (((issueMonth() - 1 + +off) % 12 + 12) % 12 + 1) + '月');
+}
+function toTpl(text) {
+  let out = text;
+  Object.entries(fileParts()).forEach(([k, v]) => { if (v) out = out.split(v).join(k); });
+  return out.replace(/(?<![\d{])(1[0-2]|0?[1-9])月/g, (_, m) => {
+    let off = +m - issueMonth();
+    if (off > 6) off -= 12; if (off < -6) off += 12; // 12月↔1月のまたぎ
+    return `{月${off >= 0 ? '+' : ''}${off}}`;
+  });
+}
 function defaultFileName() { return fillTpl(DEFAULT_TPL); }
 function renderFileName() {
   const el = $('fileName');
   if (document.activeElement !== el) el.value = fillTpl(doc.fileName || DEFAULT_TPL);
   $('fileNameReset').style.display = doc.fileName ? '' : 'none';
-  $('fileNameHint').textContent = '日付・請求書/見積書・宛先の部分は、内容に合わせて自動で変わるよ。それ以外は自由に書き換えてOK';
+  $('fileNameHint').textContent = '日付・請求書/見積書・宛先・「〇月」の部分は、内容に合わせて自動で変わるよ。それ以外は自由に書き換えてOK';
 }
 
 // ---------- 計算 ----------
