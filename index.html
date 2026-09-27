@@ -498,12 +498,12 @@ $('btnConvert').onclick = () => {
   doc = inv; renderForm(); renderSheet();
   toast('見積書の内容で請求書を作ったよ（発行日・期限は新しくしてある）');
 };
-// ファイル名：発行日_請求書or見積書_宛先（例：20260927_請求書_株式会社〇〇）
+// ファイル名：発行日_請求書or見積書_宛先＋敬称（例：26.09.27_請求書_株式会社〇〇御中）
 function fileBase() {
-  const date = (doc.issueDate || ymd(new Date())).replace(/-/g, '');
+  const date = (doc.issueDate || ymd(new Date())).slice(2).replace(/-/g, '.');
   const kind = doc.type === 'invoice' ? '請求書' : '見積書';
-  const to = (doc.clientName || '宛先未入力').replace(/[\\/:*?"<>|\s]+/g, '');
-  return `${date}_${kind}_${to}`;
+  const to = doc.clientName ? doc.clientName + (doc.honorific || '') : '宛先未入力';
+  return `${date}_${kind}_${to.replace(/[\\/:*?"<>|\s]+/g, '')}`;
 }
 $('btnPrint').onclick = () => {
   const old = document.title;
