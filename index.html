@@ -533,7 +533,7 @@ $('btnConvert').onclick = () => {
   const src = JSON.parse(JSON.stringify(doc));
   const inv = newDoc('invoice');
   Object.assign(inv, {profileId: src.profileId, subject: src.subject, clientName: src.clientName, honorific: src.honorific,
-    clientContact: src.clientContact, items: src.items, priceMode: src.priceMode || 'excl', withholding: src.withholding, notes: src.notes});
+    clientContact: src.clientContact, items: src.items, priceMode: src.priceMode || 'excl', withholding: src.withholding, notes: src.notes, fileName: src.fileName || ''});
   doc = inv; renderForm(); renderSheet();
   toast('見積書の内容で請求書を作ったよ（発行日・期限は新しくしてある）');
 };
@@ -590,7 +590,7 @@ $('history').addEventListener('click', e => {
   if (act === 'open') { doc = JSON.parse(JSON.stringify(d)); renderForm(); renderSheet(); window.scrollTo({top:0, behavior:'smooth'}); }
   if (act === 'dup') {
     const n = JSON.parse(JSON.stringify(d));
-    n.id = null; n.fileName = ""; n.issueDate = ymd(new Date()); n.dueDate = defaultDue(n.type, n.issueDate);
+    n.id = null; n.issueDate = ymd(new Date()); n.dueDate = defaultDue(n.type, n.issueDate);
     doc = n; renderForm(); renderSheet(); toast('コピーしたよ。内容を直して保存してね');
   }
   if (act === 'del' && confirm(`${jpDate(d.issueDate)}の${d.type==='invoice'?'請求書':'見積書'}（${d.clientName||'宛先なし'}）を削除する？`)) {
