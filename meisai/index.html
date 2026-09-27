@@ -344,7 +344,7 @@ function profile(id, strict) { return store.profiles.find(p => p.id === id) || (
 // ---------- ファイル名 ----------
 // doc.fileName には「ひな形」を保存する。日付・種類・宛先の部分は {日付}{種類}{宛先} の目印にしておき、
 // 表示するときに今の内容で置き換える → 手で書き換えても、その3つは内容に合わせて自動で変わる
-const DEFAULT_TPL = '{日付}_{種類}_{宛先}';
+const DEFAULT_TPL = '{年月+0}_{種類}'; // 明細書：請求月_売上明細書（例：26.09_売上明細書）
 function fileParts() {
   return {
     '{宛先}': (doc.clientName ? doc.clientName + (doc.honorific || '') : '宛先未入力').replace(/[\\/:*?"<>|\s]+/g, ''),
