@@ -92,9 +92,10 @@ dialog .foot{display:flex;gap:8px;justify-content:flex-end;padding:12px 18px;bor
 .ss .sumbox .k{background:#d9d9d9;text-align:center;font-weight:700;font-size:12pt;height:10.6mm;display:flex;align-items:center;justify-content:center;border-bottom:1px solid #000}
 .ss .sumbox .v{text-align:center;font-weight:700;font-size:14pt;height:14.8mm;display:flex;align-items:center;justify-content:center}
 .ss .lbl{font-weight:700;font-size:9pt;margin-right:3.5mm}
-.ss .issuer{margin-top:7mm}
+.ss .issuer{margin-top:7mm;position:relative}
+.ss .issuer .stamp{position:absolute;right:-8mm;top:2mm;width:18mm;height:18mm;object-fit:contain;opacity:.9}
 .ss .issuer .nm{font-weight:700;font-size:11pt;margin-top:1mm}
-.ss .issuer .sub{font-size:8.5pt;margin-top:.8mm;line-height:1.45}
+.ss .issuer .sub{font-size:9pt;margin-top:1mm;line-height:1.45}
 .ss table{width:175mm;border-collapse:collapse;table-layout:fixed;margin-top:5.5mm;font-size:10pt;border:1px solid #999}
 .ss th,.ss td{border:1px solid #bbb;height:6.7mm;padding:0 1.6mm;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ss thead tr.band th{background:#d9d9d9;height:11.5mm;font-size:12pt;font-weight:700;border-color:#999}
@@ -172,7 +173,6 @@ dialog .foot{display:flex;gap:8px;justify-content:flex-end;padding:12px 18px;bor
       </h2>
       <div id="stmtOpts" style="margin-bottom:10px">
         <div class="hint">1回のサポートごとに1行。サポート料金は<b>税込</b>で入力してね。「＋ 行を追加」を押すと、前の行のお客様名と内容がコピーされるよ（最大19行まで1ページに収まる）。</div>
-        <label class="check"><input type="checkbox" id="showIssuerDetail"> 発行元に住所・連絡先も表示する</label>
       </div>
       <div class="seg" id="modeSeg" style="margin-bottom:10px">
         <button data-mode="excl">単価は税抜（外税）</button>
@@ -429,7 +429,7 @@ function renderForm() {
   $('dueWrap').style.visibility = isStmt ? 'hidden' : '';
   ['modeSeg','taxHint','whWrap'].forEach(id => $(id).style.display = isStmt ? 'none' : '');
   $('stmtOpts').style.display = isStmt ? '' : 'none';
-  $('showIssuerDetail').checked = !!doc.showIssuerDetail;
+
   $('clientList').innerHTML = [...new Set(store.docs.map(d => d.clientName).filter(Boolean))].map(n => `<option value="${esc(n)}">`).join('');
   document.querySelectorAll('#modeSeg button').forEach(b => b.classList.toggle('on', b.dataset.mode === (doc.priceMode || 'excl')));
   $('presetSel').innerHTML = '<option value="">登録品目から追加…</option>' +
@@ -518,8 +518,8 @@ function renderSheet() {
     const rows = doc.items.map(it => !it.name && !it.date && !it.customer && !+it.price ? empty
       : `<tr><td class="c">${md(it.date)}</td><td class="c">${esc(it.customer || '')}</td><td class="c">${it.price === '' ? '' : num(Math.floor((+it.qty || 1) * (+it.price || 0)))}</td><td>${esc(it.name)}</td></tr>`);
     while (rows.length < 19) rows.push(empty);
-    const issuerName = [p.name, p.rep].filter(Boolean).map(esc).join('　') || '（発行者の設定から入力してね）';
-    const detail = doc.showIssuerDetail ? [addr, p.tel ? 'TEL：' + esc(p.tel) : '', p.email ? 'Mail：' + esc(p.email) : '', p.regNo && !p.exempt ? '登録番号 ' + esc(p.regNo) : ''].filter(Boolean).join('<br>') : '';
+    // 発行元：請求書と同じく「発行者の設定」の内容をそのまま出す
+    const detail = [p.rep ? esc(p.rep) : '', addr, p.tel ? 'TEL：' + esc(p.tel) : '', p.email ? 'Mail：' + esc(p.email) : '', p.regNo && !p.exempt ? '登録番号 ' + esc(p.regNo) : ''].filter(Boolean).join('<br>');
     $('sheet').innerHTML = `
     <div class="page">
       <div class="title">シニアサポート　売上明細書</div>
@@ -532,8 +532,9 @@ function renderSheet() {
         <div class="right">
           <div><span class="lbl">作成日</span>${slash(doc.issueDate)}</div>
           <div class="issuer">
+            ${p.stamp ? `<img class="stamp" src="${p.stamp}" alt="">` : ''}
             <div class="lbl">発行元</div>
-            <div class="nm">${issuerName}</div>
+            <div class="nm">${esc(p.name) || '（発行者の設定から入力してね）'}</div>
             ${detail ? `<div class="sub">${detail}</div>` : ''}
           </div>
         </div>
@@ -635,7 +636,7 @@ $('issueDate').addEventListener('change', e => {
   if (!doc.id) { doc.dueDate = defaultDue(doc.type, doc.issueDate); $('dueDate').value = doc.dueDate; }
   renderSheet();
 });
-$('showIssuerDetail').addEventListener('change', e => { doc.showIssuerDetail = e.target.checked; renderSheet(); });
+
 $('fileName').addEventListener('input', e => {
   const v = e.target.value.trim();
   const tpl = v ? toTpl(v) : '';
