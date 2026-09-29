@@ -77,6 +77,8 @@ dialog .foot{display:flex;gap:8px;justify-content:flex-end;padding:12px 18px;bor
 .sheet .sum td{border:1px solid #555;padding:1.4mm 2.5mm}
 .sheet .sum td:first-child{background:#f7f7f7}
 .sheet .sum tr.big td{font-weight:700;font-size:10.5pt}
+.sheet .received{margin-top:2.5mm;font-size:10.5pt}
+.sheet .inshi{margin-top:4mm;width:22mm;height:26mm;border:1px dashed #777;display:flex;align-items:center;justify-content:center;font-size:8.5pt;color:#555;text-align:center;line-height:1.4}
 .sheet .box{border:1px solid #555;padding:2.5mm 3mm;margin-top:5mm;font-size:9.5pt;white-space:pre-wrap}
 .sheet .box .t{font-weight:600;margin-bottom:1mm}
 .sheet .foot-note{font-size:8.5pt;color:#444;margin-top:2mm}
@@ -97,6 +99,7 @@ dialog .foot{display:flex;gap:8px;justify-content:flex-end;padding:12px 18px;bor
   <button id="btnSave">よく使うに保存</button>
   <button id="btnToDelivery" title="今の内容で納品書を作る">→ 納品書にする</button>
   <button id="btnToInvoice" title="今の内容で請求書を作る">→ 請求書にする</button>
+  <button id="btnToReceipt" title="今の請求書の内容で領収書を作る">→ 領収書にする</button>
   <span class="sp"></span>
   <button id="btnProfile">発行者の設定</button>
   <button id="btnBackup">バックアップ</button>
@@ -123,14 +126,15 @@ dialog .foot{display:flex;gap:8px;justify-content:flex-end;padding:12px 18px;bor
         <button data-type="quote">見積書</button>
         <button data-type="delivery">納品書</button>
         <button data-type="invoice">請求書</button>
+        <button data-type="receipt">領収書</button>
       </div>
       <label>発行者</label>
       <select id="profileSel"></select>
       <div class="row">
         <div><label>発行日</label><input id="issueDate" type="date"></div>
-        <div><label id="dueLabel">支払期限</label><input id="dueDate" type="date"></div>
+        <div id="dueWrap"><label id="dueLabel">支払期限</label><input id="dueDate" type="date"></div>
       </div>
-      <label>件名</label><input id="subject" placeholder="例：〇〇動画 編集業務">
+      <label id="subjectLabel">件名</label><input id="subject" placeholder="例：〇〇動画 編集業務">
     </div>
 
     <div class="panel">
@@ -284,6 +288,7 @@ const TYPES = {
   quote:    {name:'見積書', short:'見積', lead:'下記のとおりお見積り申し上げます。', total:'お見積金額', date:'有効期限'},
   delivery: {name:'納品書', short:'納品', lead:'下記のとおり納品いたしました。',   total:'合計金額',   date:'納品日'},
   invoice:  {name:'請求書', short:'請求', lead:'下記のとおりご請求申し上げます。', total:'ご請求金額', date:'お支払期限'},
+  receipt:  {name:'領収書', short:'領収', lead:'',                               total:'領収金額',   date:''},
 };
 const T = d => TYPES[d.type] || TYPES.invoice;
 
@@ -395,7 +400,12 @@ function renderForm() {
   $('dueLabel').textContent = T(doc).date.replace('お', '');
   $('bankWrap').style.display = doc.type === 'invoice' ? '' : 'none';
   $('btnToDelivery').style.display = doc.type === 'quote' ? '' : 'none';
-  $('btnToInvoice').style.display = doc.type === 'invoice' ? 'none' : '';
+  const isRcpt = doc.type === 'receipt';
+  $('btnToInvoice').style.display = doc.type === 'invoice' || isRcpt ? 'none' : '';
+  $('btnToReceipt').style.display = doc.type === 'invoice' ? '' : 'none';
+  $('dueWrap').style.visibility = isRcpt ? 'hidden' : '';
+  $('subjectLabel').textContent = isRcpt ? '但し書き（〇〇代として）' : '件名';
+  $('subject').placeholder = isRcpt ? '例：動画編集代' : '例：〇〇動画 編集業務';
   $('clientList').innerHTML = [...new Set(store.docs.map(d => d.clientName).filter(Boolean))].map(n => `<option value="${esc(n)}">`).join('');
   document.querySelectorAll('#modeSeg button').forEach(b => b.classList.toggle('on', b.dataset.mode === (doc.priceMode || 'excl')));
   $('presetSel').innerHTML = '<option value="">登録品目から追加…</option>' +
@@ -429,6 +439,12 @@ function renderSheet() {
   const c = calc(doc);
   const isInv = doc.type === 'invoice';
   const isDel = doc.type === 'delivery';
+  const isRcpt = doc.type === 'receipt';
+  const netLabel = isRcpt ? '差引領収金額' : '差引ご請求額';
+  // 但し書き：「動画編集代」→「但し　動画編集代として」（最初から「として」まで書いてあればそのまま）
+  const tadashi = doc.subject ? '但し　' + esc(doc.subject.replace(/^但し\s*/, '')) + (/として$/.test(doc.subject) ? '' : 'として') : '';
+  // 収入印紙：税抜の受取金額が5万円以上なら貼る場所を出す
+  const needInshi = isRcpt && c.subtotal >= 50000;
   const title = T(doc).name;
   const minRows = 8;
   const rows = doc.items.map(it => {
@@ -444,8 +460,8 @@ function renderSheet() {
     : incl
     ? `<tr><td>${t.rate}%対象（税込）</td><td class="num">${yen(t.gross)}</td></tr><tr><td>　内${taxWord}（${t.rate}%）</td><td class="num">${yen(t.tax)}</td></tr>`
     : `<tr><td>${t.rate}%対象（税抜）</td><td class="num">${yen(t.base)}</td></tr><tr><td>${taxWord}（${t.rate}%）</td><td class="num">${yen(t.tax)}</td></tr>`).join('');
-  const whRows = c.wh && !isDel ? `<tr><td>源泉徴収税額</td><td class="num">-${yen(c.wh)}</td></tr><tr class="big"><td>差引ご請求額</td><td class="num">${yen(c.pay)}</td></tr>` : '';
-  const headline = isInv && c.wh ? c.pay : c.total;
+  const whRows = c.wh && !isDel ? `<tr><td>源泉徴収税額</td><td class="num">-${yen(c.wh)}</td></tr><tr class="big"><td>${netLabel}</td><td class="num">${yen(c.pay)}</td></tr>` : '';
+  const headline = (isInv || isRcpt) && c.wh ? c.pay : c.total;
   const addr = [p.zip ? '〒' + esc(p.zip) : '', esc(p.address)].filter(Boolean).join('<br>'); // 郵便番号の後で改行
 
   $('sheet').innerHTML = `
@@ -455,12 +471,13 @@ function renderSheet() {
       <div class="to">
         <div class="name">${esc(doc.clientName) || '&nbsp;'}　${esc(doc.honorific)}</div>
         ${doc.clientContact ? `<div class="contact">${esc(doc.clientContact)}</div>` : ''}
-        <div class="lead">${T(doc).lead}</div>
-        <div class="total-box"><div class="k">${isInv && c.wh ? '差引ご請求額' : T(doc).total}</div><div class="v">${yen(headline)}<span style="font-size:9pt;font-weight:400">（税込）</span></div></div>
+        ${T(doc).lead ? `<div class="lead">${T(doc).lead}</div>` : '<div class="lead">&nbsp;</div>'}
+        <div class="total-box"><div class="k">${(isInv || isRcpt) && c.wh ? netLabel : T(doc).total}</div><div class="v">${yen(headline)}<span style="font-size:9pt;font-weight:400">（税込）</span></div></div>
+        ${isRcpt ? `${tadashi ? `<div class="received">${tadashi}</div>` : ''}<div class="received">上記正に領収いたしました。</div>` : `
         <table class="kv">
           ${doc.subject ? `<tr><td>件名</td><td>${esc(doc.subject)}</td></tr>` : ''}
-          ${doc.dueDate ? `<tr><td>${T(doc).date}</td><td>${jpDate(doc.dueDate)}</td></tr>` : ''}
-        </table>
+          ${doc.dueDate && T(doc).date ? `<tr><td>${T(doc).date}</td><td>${jpDate(doc.dueDate)}</td></tr>` : ''}
+        </table>`}
       </div>
       <div class="from">
         ${p.stamp ? `<img class="stamp" src="${p.stamp}" alt="">` : ''}
@@ -470,6 +487,7 @@ function renderSheet() {
         ${p.tel ? `<div>TEL：${esc(p.tel)}</div>` : ''}
         ${p.email ? `<div>Mail：${esc(p.email)}</div>` : ''}
         ${p.regNo && !p.exempt ? `<div>登録番号 ${esc(p.regNo)}</div>` : ''}
+        ${needInshi ? '<div class="inshi">収入<br>印紙</div>' : ''}
       </div>
     </div>
     <table class="items">
@@ -621,6 +639,7 @@ function convertTo(type) {
 }
 $('btnToDelivery').onclick = () => convertTo('delivery');
 $('btnToInvoice').onclick = () => convertTo('invoice');
+$('btnToReceipt').onclick = () => convertTo('receipt');
 // ファイル名：手で変えていればそれを使う。なければ自動の名前
 function fileBase() {
   const name = fillTpl(doc.fileName || DEFAULT_TPL).replace(/\.pdf$/i, '').replace(/[\\/:*?"<>|]+/g, '').trim();
