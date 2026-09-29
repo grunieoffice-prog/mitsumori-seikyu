@@ -501,7 +501,7 @@ function renderSheet() {
     ${isInv && doc.showBank !== false && p.bank ? `
     <div class="thanks">この度は${esc(p.name) || '弊社'}をご利用いただきありがとうございました。<br>上記明細をご確認後、下記口座に振込手数料をお客様負担でお振込をお願いいたします。</div>
     <div class="box" style="margin-top:2mm"><div class="t">お振込先</div>${esc(p.bank)}</div>` : ''}
-    ${isRcpt ? `<div class="thanks">この度は${esc(p.name) || '弊社'}をご利用いただきありがとうございました。</div>` : ''}
+    ${isRcpt ? `<div class="thanks">この度は${esc(p.name) || '弊社'}をご利用いただきありがとうございました。<br>またのご利用を心よりお待ちしております。</div>` : ''}
     ${doc.notes ? `<div class="box"><div class="t">備考</div>${esc(doc.notes)}</div>` : ''}
   `;
 }
