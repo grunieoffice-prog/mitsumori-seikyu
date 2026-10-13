@@ -176,6 +176,7 @@ dialog .foot{display:flex;gap:8px;justify-content:flex-end;padding:12px 18px;bor
       <h2>備考</h2>
       <textarea id="notes" placeholder="例：お振込手数料はご負担ください。"></textarea>
       <label class="check" id="bankWrap"><input type="checkbox" id="showBank" checked> 振込先を表示する</label>
+      <label class="check" id="signWrap"><input type="checkbox" id="showSign" checked> 受取日・受取人の欄を表示する</label>
     </div>
 
     <div class="panel">
@@ -406,6 +407,8 @@ function renderForm() {
   $('honorific').value = doc.honorific;
   $('withholding').checked = !!doc.withholding;
   $('showBank').checked = doc.showBank !== false;
+  $('showSign').checked = doc.showSign !== false;
+  $('signWrap').style.display = doc.type === 'receipt' ? '' : 'none';
   $('dueLabel').textContent = T(doc).date.replace('お', '');
   $('bankWrap').style.display = doc.type === 'invoice' ? '' : 'none';
   $('btnToDelivery').style.display = doc.type === 'quote' ? '' : 'none';
@@ -512,7 +515,7 @@ function renderSheet() {
     <div class="box" style="margin-top:2mm"><div class="t">お振込先</div>${esc(p.bank)}</div>` : ''}
     ${isRcpt ? `<div class="thanks">この度は${esc(p.name) || '弊社'}をご利用いただきありがとうございました。<br>またのご利用を心よりお待ちしております。</div>` : ''}
     ${doc.notes ? `<div class="box"><div class="t">備考</div>${esc(doc.notes)}</div>` : ''}
-    ${isRcpt ? `<div class="sign">
+    ${isRcpt && doc.showSign !== false ? `<div class="sign">
       <div class="row"><span class="k">受取日</span><span class="date"><span>年</span><span>月</span><span>日</span></span></div>
       <div class="row"><span class="k">受取人</span><span class="line"><span class="in">印</span></span></div>
     </div>` : ''}
@@ -582,6 +585,7 @@ $('fileNameReset').onclick = () => { doc.fileName = ''; renderFileName(); };
 $('honorific').addEventListener('change', e => { doc.honorific = e.target.value; renderSheet(); });
 $('withholding').addEventListener('change', e => { doc.withholding = e.target.checked; renderSheet(); });
 $('showBank').addEventListener('change', e => { doc.showBank = e.target.checked; renderSheet(); });
+$('showSign').addEventListener('change', e => { doc.showSign = e.target.checked; renderSheet(); });
 $('profileSel').addEventListener('change', e => {
   doc.profileId = e.target.value;
   renderSheet();
