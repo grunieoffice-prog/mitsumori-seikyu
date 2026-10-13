@@ -79,11 +79,11 @@ dialog .foot{display:flex;gap:8px;justify-content:flex-end;padding:12px 18px;bor
 .sheet .sum tr.big td{font-weight:700;font-size:10.5pt}
 .sheet .received{margin-top:2.5mm;font-size:10.5pt}
 .sheet .thanks{margin-top:5mm;font-size:9.5pt;line-height:1.6}
-/* 領収書の受取日・受取人署名（手書き用） */
+/* 領収書の受取日・受取人（手書き用） */
 .sheet .sign{margin-top:10mm;margin-left:auto;width:max-content;font-size:10pt}
 .sheet .sign .row{display:flex;align-items:flex-end;gap:3mm;margin-top:4mm}
 .sheet .sign .k{flex:0 0 20mm;text-align:right}
-.sheet .sign .line{flex:0 0 105mm;width:105mm;border-bottom:1px solid #111;height:13mm;display:flex;align-items:flex-end;justify-content:flex-end;padding-bottom:1mm}
+.sheet .sign .line{flex:0 0 75mm;width:75mm;border-bottom:1px solid #111;height:13mm;display:flex;align-items:flex-end;justify-content:flex-end;padding-bottom:1mm}
 .sheet .sign .date{display:flex;padding-bottom:1mm}
 .sheet .sign .date span{margin-left:9mm}
 .sheet .sign .date span:first-child{margin-left:13mm}
@@ -514,7 +514,7 @@ function renderSheet() {
     ${doc.notes ? `<div class="box"><div class="t">備考</div>${esc(doc.notes)}</div>` : ''}
     ${isRcpt ? `<div class="sign">
       <div class="row"><span class="k">受取日</span><span class="date"><span>年</span><span>月</span><span>日</span></span></div>
-      <div class="row"><span class="k">受取人署名</span><span class="line"><span class="in">印</span></span></div>
+      <div class="row"><span class="k">受取人</span><span class="line"><span class="in">印</span></span></div>
     </div>` : ''}
   `;
 }
