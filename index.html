@@ -82,8 +82,9 @@ dialog .foot{display:flex;gap:8px;justify-content:flex-end;padding:12px 18px;bor
 /* 領収書の受取日・受取人（手書き用） */
 .sheet .sign{margin-top:10mm;margin-left:auto;width:max-content;font-size:10pt}
 .sheet .sign .row{display:flex;align-items:flex-end;gap:3mm;margin-top:4mm}
+.sheet .sign .row + .row{margin-top:0}
 .sheet .sign .k{flex:0 0 20mm;text-align:right}
-.sheet .sign .line{flex:0 0 75mm;width:75mm;border-bottom:1px solid #111;height:13mm;display:flex;align-items:flex-end;justify-content:flex-end;padding-bottom:1mm}
+.sheet .sign .line{flex:0 0 75mm;width:75mm;border-bottom:1px solid #111;height:10mm;display:flex;align-items:flex-end;justify-content:flex-end;padding-bottom:1mm}
 .sheet .sign .date{display:flex;padding-bottom:1mm}
 .sheet .sign .date span{margin-left:9mm}
 .sheet .sign .date span:first-child{margin-left:13mm}
